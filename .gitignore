@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.vs/
+CarArchive/artifacts/
+*.user
+*.db
+*.db-shm
+*.db-wal
+verification-output/
+.tools/
+artifacts/

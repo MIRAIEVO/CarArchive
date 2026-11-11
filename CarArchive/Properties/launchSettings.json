@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "CarArchive (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "CarArchive (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
