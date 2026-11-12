@@ -29,18 +29,28 @@ public sealed partial class MainPage
         box.PreviewKeyDown+=(_,args)=> { if(args.Key==VirtualKey.Escape) close(); };
         box.GotFocus+=(_,_)=>
         {
+            if(box.FocusState==FocusState.Pointer) return;
             var group=displayed?.Id;
             DispatcherQueue.TryEnqueue(()=> { if(displayed?.Id==group && InputFocused(box)) open(); });
         };
         box.AddHandler(UIElement.PointerPressedEvent,new PointerEventHandler((_,args)=>
         {
-            var point=args.GetCurrentPoint(box).Position;
-            if(point.X>=0 && point.X<=box.ActualWidth && point.Y>=0 && point.Y<=box.ActualHeight)
+            if(IsInsideSuggestionInput(box,args.OriginalSource as DependencyObject))
             {
                 var group=displayed?.Id;
                 DispatcherQueue.TryEnqueue(()=> { if(displayed?.Id==group) open(); });
             }
         }),true);
+    }
+    private static bool IsInsideSuggestionInput(AutoSuggestBox box,DependencyObject? source)
+    {
+        if(VisualChild<TextBox>(box) is not { } input) return false;
+        for(var node=source;node is not null;node=VisualTreeHelper.GetParent(node))
+        {
+            if(ReferenceEquals(node,input)) return true;
+            if(ReferenceEquals(node,box)) return false;
+        }
+        return false;
     }
     private static bool InputFocused(AutoSuggestBox box)=>VisualChild<TextBox>(box) is { } input && input.FocusState!=FocusState.Unfocused;
     private readonly Dictionary<AutoSuggestBox,int> popupVersions=[];
@@ -85,9 +95,9 @@ public sealed partial class MainPage
         if(adjustOffset) popup.VerticalOffset+=targetTop-popupTop;
         return false;
     }
-    private void PresentSuggestions(AutoSuggestBox box,IReadOnlyList<CategorySuggestion> matches,bool reverseOrder=true)
+    private void PresentSuggestions(AutoSuggestBox box,IReadOnlyList<CategorySuggestion> matches)
     {
-        var items=reverseOrder?matches.Reverse().ToArray():matches.ToArray();
+        var items=matches.ToArray();
         box.ItemsSource=items;box.IsSuggestionListOpen=items.Length>0;
         var version=popupVersions.GetValueOrDefault(box)+1;popupVersions[box]=version;
         if(items.Length==0) return;
@@ -109,9 +119,8 @@ public sealed partial class MainPage
             if(SuggestionList(box) is not { } list) return;
             list.UpdateLayout();
             if(VisualChild<ScrollViewer>(list) is not { } scroll || scroll.ViewportHeight<=0) return;
-            var targetOffset=reverseOrder?scroll.ScrollableHeight:0;
-            scroll.ChangeView(null,targetOffset,null,true);
-            stable=Math.Abs(scroll.VerticalOffset-targetOffset)<1?stable+1:0;
+            scroll.ChangeView(null,0,null,true);
+            stable=Math.Abs(scroll.VerticalOffset)<1?stable+1:0;
             // AutoSuggestBox may reset its view during its native opening transition.
             if(tries>=8 && stable>=2) timer.Stop();
         };
@@ -145,6 +154,19 @@ public sealed partial class MainPage
         { Thumbnail_Loaded(sender,args);return; }
         if(sender is Image { Source:BitmapImage bitmap,Parent:StackPanel panel } && bitmap.PixelHeight>0)
             { imageThumbnailHeight=(BodyGrid.ActualHeight<600?96d:120d);((Image)sender).Height=imageThumbnailHeight;panel.Width=imageThumbnailHeight*bitmap.PixelWidth/bitmap.PixelHeight; }
+    }
+    private void ThumbnailCaption_Loaded(object sender,RoutedEventArgs args)
+    {
+        if(sender is Border caption && caption.DataContext is Photo photo) SetThumbnailCaptionSelection(caption,photo);
+    }
+    private void UpdateThumbnailCaptionSelection(Photo photo)
+    {
+        if(PhotoList.ContainerFromItem(photo) is ListViewItem container && VisualChild<TextBlock>(container)?.Parent is Border caption)
+            SetThumbnailCaptionSelection(caption,photo);
+    }
+    private void SetThumbnailCaptionSelection(Border caption,Photo photo)
+    {
+        caption.Background=PhotoList.SelectedItems.Contains(photo)?PhotoList.Resources["ThumbnailCaptionSelectionBrush"] as Brush:null;
     }
     private static void SelectContextItem(ListView list,DependencyObject? source)
     {

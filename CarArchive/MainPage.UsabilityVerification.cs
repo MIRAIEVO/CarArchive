@@ -22,7 +22,7 @@ public sealed partial class MainPage
             Check(File.Exists(MainWindow.AppIconPath) && File.Exists(MainWindow.TitleBarIconPath) && App.MainWindow!.HasTitleBarIcon,"Window and title-bar icons resolve to published image assets.");
             var root=Path.Combine(directory,"library");
             for(var i=0;i<30;i++) Directory.CreateDirectory(Path.Combine(root,"Mercedes-AMG","S 63 Coupe Edition "+i+" (C217)"));
-            Directory.CreateDirectory(Path.Combine(root,"BMW"));
+            Directory.CreateDirectory(Path.Combine(root,"BMW"));Directory.CreateDirectory(Path.Combine(root,"BMX"));
             var wide=await FixtureImageAsync(Path.Combine(directory,"wide.jpg"),160,80);var portrait=await FixtureImageAsync(Path.Combine(directory,"portrait.jpg"),60,120);
             var hashes=new[] { await ArchiveService.HashAsync(wide),await ArchiveService.HashAsync(portrait) };
             await VM.ImportAsync([wide,portrait],true,default);await VM.BackgroundImport;var group=VM.Groups[0];
@@ -34,6 +34,8 @@ public sealed partial class MainPage
             Check(Math.Abs(TopBar.ActualHeight-40)<.5 && Math.Abs(modeCenter-importCenter)<1 && Math.Abs(modeCenter-batchCenter)<1,"Top commands align vertically in a compact 40-pixel row: "+JsonSerializer.Serialize(new { BarHeight=TopBar.ActualHeight,ModeHeight=ModeButton.ActualHeight,ModeCenter=modeCenter,ImportHeight=ImportGroupButton.ActualHeight,ImportCenter=importCenter,BatchHeight=BatchImportButton.ActualHeight,BatchCenter=batchCenter }));
             var moreMenu=MoreButton.Flyout as MenuFlyout;
             Check(moreMenu is not null && moreMenu.Items.Count==4,"The compact command row retains settings, naming, history, and undo actions.");
+            var folderInput=VisualChild<TextBox>(FolderEdit);
+            Check(folderInput is not null && IsInsideSuggestionInput(FolderEdit,folderInput) && !IsInsideSuggestionInput(FolderEdit,FolderEdit),"Suggestion activation is limited to the inner text-box hit target, not the surrounding control.");
             var actionButtons=AnalysisBar.PrimaryCommands.OfType<FrameworkElement>().ToArray();
             Check(actionButtons.Length==6,"Preview toolbar retains all six actions.");
             var actionStart=actionButtons[0].TransformToVisual(PreviewPane).TransformPoint(new(0,0)).X;
@@ -42,7 +44,8 @@ public sealed partial class MainPage
             if(narrowLayout) PaneBox.SelectedIndex=2;await Task.Delay(100);
             VisualChild<TextBox>(FolderEdit)?.Focus(FocusState.Programmatic);DispatcherQueue.TryEnqueue(OpenFolderSuggestions);await Task.Delay(80);await categoryRefresh;await Task.Delay(450);
             var suggestions=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.ToArray() ?? [];
-            Check(FolderEdit.IsSuggestionListOpen && suggestions.Length==20 && suggestions[0].FolderName.Contains("S 63 Coupe"),"Compact suggestions: "+JsonSerializer.Serialize(new { Open=FolderEdit.IsSuggestionListOpen,Count=suggestions.Length,First=suggestions.FirstOrDefault()?.FolderName,Input=FolderEdit.Text,Items=categoryItems.Count,Active=folderSuggestionsActive,Focus=FolderEdit.FocusState.ToString(),Editable=group.Editable,Status=VM.Status }));
+            var expectedSuggestions=categorySearch.Match(FolderEdit.Text,TargetBrandEdit.Text);
+            Check(FolderEdit.IsSuggestionListOpen && suggestions.Length==20 && suggestions.SequenceEqual(expectedSuggestions) && suggestions[0].FolderName.Contains("S 63 Coupe"),"Folder suggestions retain descending relevance order: "+JsonSerializer.Serialize(new { Open=FolderEdit.IsSuggestionListOpen,Count=suggestions.Length,First=suggestions.FirstOrDefault()?.FolderName,Input=FolderEdit.Text,Items=categoryItems.Count,Active=folderSuggestionsActive,Focus=FolderEdit.FocusState.ToString(),Editable=group.Editable,Status=VM.Status }));
             var popup=SuggestionList(FolderEdit);var scroll=popup is null?null:VisualChild<ScrollViewer>(popup);
             var popupWindow=SuggestionPopup(FolderEdit);var textInput=VisualChild<TextBox>(FolderEdit);
             var popupHooked=popupWindow is not null && suggestionPopups.Contains(popupWindow);
@@ -55,10 +58,12 @@ public sealed partial class MainPage
             FolderEdit.Text="s63coupe";OpenFolderSuggestions();await categoryRefresh;await Task.Delay(450);
             CloseFolderSuggestions();VisualChild<TextBox>(TargetBrandEdit)?.Focus(FocusState.Programmatic);TargetBrandEdit.Text="";OpenBrandSuggestions();await Task.Delay(100);
             Check(!TargetBrandEdit.IsSuggestionListOpen && TargetBrandEdit.ItemsSource is null,"Empty brand input leaves suggestions closed.");
-            TargetBrandEdit.Text="bwm";OpenBrandSuggestions();await categoryRefresh;await Task.Delay(450);
-            var brand=(TargetBrandEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.LastOrDefault();
+            TargetBrandEdit.Text="bm";OpenBrandSuggestions();await categoryRefresh;await Task.Delay(450);
+            var brandSuggestions=(TargetBrandEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.ToArray() ?? [];
+            var expectedBrandSuggestions=brandSearch.Match(TargetBrandEdit.Text,TargetBrandEdit.Text);
+            var brand=brandSuggestions.FirstOrDefault();
             var brandPopup=SuggestionPopup(TargetBrandEdit);
-            Check(brand?.BrandDirectory=="BMW" && SuggestionsAreBelow(TargetBrandEdit) && brandPopup is not null && suggestionPopups.Contains(brandPopup) && brandPopup.Opacity>=1,"Brand suggestions open below the input without an upward flash: "+JsonSerializer.Serialize(new { Chosen=brand?.BrandDirectory,Input=TargetBrandEdit.Text,Open=TargetBrandEdit.IsSuggestionListOpen,OpensBelow=SuggestionsAreBelow(TargetBrandEdit),PopupHooked=brandPopup is not null && suggestionPopups.Contains(brandPopup),Opacity=brandPopup?.Opacity,Active=brandSuggestionsActive,Brands=brandItems.Count }));
+            Check(brand?.BrandDirectory=="BMW" && brandSuggestions.SequenceEqual(expectedBrandSuggestions) && brandSuggestions.Select(item=>item.BrandDirectory).SequenceEqual(["BMW","BMX"]) && SuggestionsAreBelow(TargetBrandEdit) && brandPopup is not null && suggestionPopups.Contains(brandPopup) && brandPopup.Opacity>=1,"Brand suggestions put the most relevant result first and remain ordered through the last result: "+JsonSerializer.Serialize(new { Items=brandSuggestions.Select(item=>item.BrandDirectory),Chosen=brand?.BrandDirectory,Input=TargetBrandEdit.Text,Open=TargetBrandEdit.IsSuggestionListOpen,OpensBelow=SuggestionsAreBelow(TargetBrandEdit),PopupHooked=brandPopup is not null && suggestionPopups.Contains(brandPopup),Opacity=brandPopup?.Opacity,Active=brandSuggestionsActive,Brands=brandItems.Count }));
             ChooseBrand(brand!);Check(group.TargetBrand=="BMW" && group.Confirmed.Brand=="","Choosing an archive brand does not alter recognition fields.");
             FolderEdit.Text="Coupé Édition Æther";EnglishInput(FolderEdit);Check(FolderEdit.Text=="Coupe Edition AEther","Folder input normalizes accented and ligature letters.");
             RenderSelection();if(narrowLayout) PaneBox.SelectedIndex=1;await Task.Delay(200);
@@ -67,11 +72,11 @@ public sealed partial class MainPage
             Check(image1?.Stretch==Microsoft.UI.Xaml.Media.Stretch.Uniform && image2?.Stretch==Microsoft.UI.Xaml.Media.Stretch.Uniform,"Thumbnail images use complete-image fitting.");
             Check(image1?.Parent is StackPanel w && image2?.Parent is StackPanel h && w.Width>h.Width*2,"Thumbnail cells pack horizontally at original aspect ratios.");
             var groupSelection=GroupList.Resources["ListViewItemBackgroundSelected"] as Microsoft.UI.Xaml.Media.SolidColorBrush;
-            var photoSelection=PhotoList.Resources["ListViewItemBackgroundSelected"] as Microsoft.UI.Xaml.Media.SolidColorBrush;
+            var photoSelection=PhotoList.Resources["ThumbnailCaptionSelectionBrush"] as Microsoft.UI.Xaml.Media.SolidColorBrush;
             PhotoList.SelectedItem=group.Photos[0];
             Check(PhotoList.SelectedItem==group.Photos[0] && groupSelection is not null && photoSelection is not null && groupSelection.Color==photoSelection.Color && Math.Abs(groupSelection.Opacity-photoSelection.Opacity)<.001,"Selected thumbnails use the same accent fill as selected groups.");
-            await Task.Delay(80);first=PhotoList.ContainerFromItem(group.Photos[0]) as ListViewItem;image1=first is null?null:VisualChild<Image>(first);
-            Check(first is not null && image1 is not null && Math.Abs(first.ActualWidth-image1.ActualWidth)<1,"Selected thumbnail background matches the displayed image width: "+JsonSerializer.Serialize(new { CellWidth=first?.ActualWidth,ImageWidth=image1?.ActualWidth }));
+            await Task.Delay(80);first=PhotoList.ContainerFromItem(group.Photos[0]) as ListViewItem;image1=first is null?null:VisualChild<Image>(first);var caption=first is null?null:VisualChild<TextBlock>(first)?.Parent as Border;
+            Check(first is not null && image1 is not null && caption is not null && caption.Background is Microsoft.UI.Xaml.Media.SolidColorBrush && Math.Abs(caption.ActualWidth-image1.ActualWidth)<1,"Selected thumbnail caption fill exactly matches the displayed image width: "+JsonSerializer.Serialize(new { CaptionWidth=caption?.ActualWidth,ImageWidth=image1?.ActualWidth }));
             PhotoList.SelectedItem=null;
             var copies=Enumerable.Range(0,65).Select(_=>GroupPhotoEditor.Copy(group,group.Photos.ToArray())).ToArray();foreach(var copy in copies) VM.Groups.Add(copy);
             if(narrowLayout) PaneBox.SelectedIndex=0;VM.Selected=copies[^1];RenderSelection();await Task.Delay(180);var container=GroupList.ContainerFromItem(copies[^1]) as ListViewItem;

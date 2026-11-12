@@ -186,6 +186,7 @@ public sealed partial class MainPage
     }
     private void Photo_Changed(object sender, SelectionChangedEventArgs e)
     {
+        foreach(var changedPhoto in e.RemovedItems.OfType<Photo>().Concat(e.AddedItems.OfType<Photo>())) UpdateThumbnailCaptionSelection(changedPhoto);
         if (rendering) return;
         FocusCurrentGroup();
         var photo = e.AddedItems.OfType<Photo>().LastOrDefault(); if (photo is not null && displayed is not null) { currentPhoto = photo;VM.SelectPhoto(displayed,photo); _ = ShowPhotoAsync(photo); }

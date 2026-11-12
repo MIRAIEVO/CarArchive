@@ -32,11 +32,15 @@ public sealed partial class CategorySearchIndex
         var normalized=Normalize(query);var tokens=normalized.Split(' ',StringSplitOptions.RemoveEmptyEntries).SelectMany(Segment).Distinct().ToArray();var brand=NamingText.Key(currentBrand);
         if(tokens.Length==0) return entries.OrderBy(e=>e.BrandKey==brand?0:1)
             .ThenBy(e=>e.Item.FolderName,StringComparer.OrdinalIgnoreCase).ThenBy(e=>e.Item.BrandDirectory,StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e=>e.Item.FolderName,StringComparer.Ordinal).ThenBy(e=>e.Item.BrandDirectory,StringComparer.Ordinal)
+            .ThenBy(e=>e.Item.TargetPath,StringComparer.OrdinalIgnoreCase).ThenBy(e=>e.Item.TargetPath,StringComparer.Ordinal)
             .Take(Math.Min(limit,20)).Select(e=>e.Item).ToArray();
         return entries.Select(entry=>(Entry:entry,Distance:Distance(entry,normalized,tokens)))
             .Where(hit=>hit.Distance<.72).OrderBy(hit=>hit.Distance)
             .ThenBy(hit=>hit.Entry.BrandKey==brand?0:1)
             .ThenBy(hit=>hit.Entry.Item.FolderName,StringComparer.OrdinalIgnoreCase).ThenBy(hit=>hit.Entry.Item.BrandDirectory,StringComparer.OrdinalIgnoreCase)
+            .ThenBy(hit=>hit.Entry.Item.FolderName,StringComparer.Ordinal).ThenBy(hit=>hit.Entry.Item.BrandDirectory,StringComparer.Ordinal)
+            .ThenBy(hit=>hit.Entry.Item.TargetPath,StringComparer.OrdinalIgnoreCase).ThenBy(hit=>hit.Entry.Item.TargetPath,StringComparer.Ordinal)
             .Take(Math.Min(limit,20)).Select(hit=>hit.Entry.Item).ToArray();
     }
     private IEnumerable<string> Segment(string token)

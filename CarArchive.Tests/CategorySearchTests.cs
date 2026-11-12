@@ -33,6 +33,15 @@ static class CategorySearchTests
             var index=new CategorySearchIndex([new("BMW","640i Gran Coupe (F06 Facelift)","6",true),new("BMW","330i Sedan (G20)","3",true)]);
             Check(index.Match("6 Series LCI","BMW")[0].TargetPath=="6");return Task.CompletedTask;
         });
+        test("Category fuzzy: highest relevance is always first and equal scores have deterministic order",()=>
+        {
+            var index=new CategorySearchIndex([new("Audi","A4 Sedan (B9)","near",true),new("Audi","A6 Avant (B9)","far",true),new("Audi","A4 Avant (B9)","best",true)]);
+            var ranking=index.Match("A4 Avant B9","").Select(item=>item.TargetPath).ToArray();
+            Check(ranking.SequenceEqual(new[]{"best","near","far"}),"Unexpected relevance order: "+string.Join(",",ranking));
+            var ties=new CategorySearchIndex([new("Zed","BMW","z",true),new("Alpha","BMW","a",true)]);
+            var tieOrder=ties.Match("BMW","").Select(item=>item.TargetPath).ToArray();
+            Check(tieOrder.SequenceEqual(new[]{"a","z"}),"Unexpected deterministic tie order: "+string.Join(",",tieOrder));return Task.CompletedTask;
+        });
         test("Category fuzzy: verified local guide aliases relate generation and chassis without API calls",()=>
         {
             var first=new CategorySuggestion("Rolls-Royce","Ghost (1st)","first",true);var second=new CategorySuggestion("Rolls-Royce","Ghost (2nd)","second",true);

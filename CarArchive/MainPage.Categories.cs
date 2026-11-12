@@ -83,7 +83,7 @@ public sealed partial class MainPage
         if (string.IsNullOrWhiteSpace(FolderEdit.Text)) { CloseFolderSuggestions(); return; }
         var matches = categorySearch.Match(FolderEdit.Text, TargetBrandEdit.Text);
         suggestionsGroupId = displayed.Id;
-        PresentSuggestions(FolderEdit,matches,reverseOrder:false);
+        PresentSuggestions(FolderEdit,matches);
     }
     private void OpenFolderSuggestions()
     {
