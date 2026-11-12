@@ -83,11 +83,11 @@ static class V2Tests
             var queue=new GroupTaskCoordinator();var a=new PhotoGroup();var finish=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);var running=queue.RunAsync(a,"A",false,ct=>finish.Task.WaitAsync(ct),()=>{});
             await Throws<InvalidOperationException>(()=>queue.RunAsync(a,"duplicate",true,_=>Task.CompletedTask,()=>{}));finish.SetResult();await running;
         });
-        test("V2: fields-only sends one image, nine fields, low thinking and a 4096 token budget",async ()=> {
+        test("V2: fields-only sends one image, ten identity fields, low thinking and a 4096 token budget",async ()=> {
             var calls=0;using var http=new HttpClient(new Handler(request=> {
                 calls++;using var body=JsonDocument.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());var root=body.RootElement;
                 Check(root.GetProperty("input").EnumerateArray().Count(e=>e.GetProperty("type").GetString()=="image")==1);
-                var schema=root.GetProperty("response_format").GetProperty("schema");Check(schema.GetProperty("properties").EnumerateObject().Count()==9 && schema.GetProperty("properties").TryGetProperty("officialName",out _) && schema.GetProperty("properties").TryGetProperty("body",out _) && !schema.GetProperty("properties").TryGetProperty("research",out _));
+                var schema=root.GetProperty("response_format").GetProperty("schema");Check(schema.GetProperty("properties").EnumerateObject().Count()==10 && schema.GetProperty("properties").TryGetProperty("officialName",out _) && schema.GetProperty("properties").TryGetProperty("productionYears",out _) && schema.GetProperty("properties").TryGetProperty("body",out _) && !schema.GetProperty("properties").TryGetProperty("research",out _));
                 Check(root.GetProperty("generation_config").GetProperty("max_output_tokens").GetInt32()==4096 && root.GetProperty("generation_config").GetProperty("thinking_level").GetString()=="low");
                 return Response("{\"brand\":\"Audi\",\"series\":\"A4\",\"code\":\"B9\"}");
             }));

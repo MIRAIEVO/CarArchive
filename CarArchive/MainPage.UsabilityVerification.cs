@@ -1,0 +1,65 @@
+#if DEBUG
+using System.Text.Json;
+using CarArchive.Core;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
+
+namespace CarArchive;
+
+public sealed partial class MainPage
+{
+    private async Task RunUsabilityVerificationAsync(string directory)
+    {
+        directory=Path.GetFullPath(directory);Directory.CreateDirectory(directory);var checks=new List<string>();
+        void Check(bool value,string name) { if(!value) throw new Exception(name);checks.Add(name); }
+        try
+        {
+            Check(ViewModels.MainViewModel.DataDirectory.StartsWith(directory+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && VM.Groups.Count==0,"Isolated test data.");
+            var root=Path.Combine(directory,"library");
+            for(var i=0;i<30;i++) Directory.CreateDirectory(Path.Combine(root,"Mercedes-AMG","S 63 Coupe Edition "+i+" (C217)"));
+            Directory.CreateDirectory(Path.Combine(root,"BMW"));
+            var wide=await FixtureImageAsync(Path.Combine(directory,"wide.jpg"),160,80);var portrait=await FixtureImageAsync(Path.Combine(directory,"portrait.jpg"),60,120);
+            var hashes=new[] { await ArchiveService.HashAsync(wide),await ArchiveService.HashAsync(portrait) };
+            await VM.ImportAsync([wide,portrait],true,default);await VM.BackgroundImport;var group=VM.Groups[0];
+            VM.State.Settings.ArchiveRoot=root;group.TargetBrand="Mercedes-AMG";group.FolderName="s63coupe";RenderSelection();await RefreshCategoryCatalogAsync(true);
+            if(narrowLayout) PaneBox.SelectedIndex=2;await Task.Delay(100);
+            VisualChild<TextBox>(FolderEdit)?.Focus(FocusState.Programmatic);DispatcherQueue.TryEnqueue(OpenFolderSuggestions);await Task.Delay(80);await categoryRefresh;await Task.Delay(450);
+            var suggestions=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.ToArray() ?? [];
+            Check(FolderEdit.IsSuggestionListOpen && suggestions.Length==20 && suggestions[0].FolderName.Contains("S 63 Coupe"),"Compact suggestions: "+JsonSerializer.Serialize(new { Open=FolderEdit.IsSuggestionListOpen,Count=suggestions.Length,First=suggestions.FirstOrDefault()?.FolderName,Input=FolderEdit.Text,Items=categoryItems.Count,Active=folderSuggestionsActive,Focus=FolderEdit.FocusState.ToString(),Editable=group.Editable,Status=VM.Status }));
+            var popup=SuggestionList(FolderEdit);var scroll=popup is null?null:VisualChild<ScrollViewer>(popup);
+            Check(scroll is not null && scroll.ScrollableHeight>0 && Math.Abs(scroll.VerticalOffset)<2 && Math.Abs(FolderEdit.MaxSuggestionListHeight-150)<.1 && scroll.ViewportHeight<=150,"Popup scroll and five-row height: "+JsonSerializer.Serialize(new { List=popup?.Name,ListHeight=popup?.ActualHeight,Found=scroll is not null,Max=scroll?.ScrollableHeight,Offset=scroll?.VerticalOffset,Viewport=scroll?.ViewportHeight,MaxSuggestionListHeight=FolderEdit.MaxSuggestionListHeight,Popups=Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Count,Editor=EditorPane.Visibility.ToString(),BoxHeight=FolderEdit.ActualHeight,Visible=App.MainWindow!.AppWindow.IsVisible }));
+            CloseFolderSuggestions();VisualChild<TextBox>(TargetBrandEdit)?.Focus(FocusState.Programmatic);TargetBrandEdit.Text="bwm";DispatcherQueue.TryEnqueue(OpenBrandSuggestions);await Task.Delay(80);await categoryRefresh;await Task.Delay(450);
+            var brand=(TargetBrandEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.LastOrDefault();
+            Check(brand?.BrandDirectory=="BMW","Brand suggestions: "+JsonSerializer.Serialize(new { Chosen=brand?.BrandDirectory,Input=TargetBrandEdit.Text,Open=TargetBrandEdit.IsSuggestionListOpen,Active=brandSuggestionsActive,Brands=brandItems.Count }));
+            ChooseBrand(brand!);Check(group.TargetBrand=="BMW" && group.Confirmed.Brand=="","Choosing an archive brand does not alter recognition fields.");
+            FolderEdit.Text="Coupé Édition Æther";EnglishInput(FolderEdit);Check(FolderEdit.Text=="Coupe Edition AEther","Folder input normalizes accented and ligature letters.");
+            RenderSelection();if(narrowLayout) PaneBox.SelectedIndex=1;await Task.Delay(200);
+            var first=PhotoList.ContainerFromItem(group.Photos[0]) as ListViewItem;var second=PhotoList.ContainerFromItem(group.Photos[1]) as ListViewItem;
+            var image1=first is null?null:VisualChild<Image>(first);var image2=second is null?null:VisualChild<Image>(second);
+            Check(image1?.Stretch==Microsoft.UI.Xaml.Media.Stretch.Uniform && image2?.Stretch==Microsoft.UI.Xaml.Media.Stretch.Uniform,"Thumbnail images use complete-image fitting.");
+            Check(image1?.Parent is StackPanel w && image2?.Parent is StackPanel h && w.Width>h.Width*2,"Thumbnail cells pack horizontally at original aspect ratios.");
+            var copies=Enumerable.Range(0,65).Select(_=>GroupPhotoEditor.Copy(group,group.Photos.ToArray())).ToArray();foreach(var copy in copies) VM.Groups.Add(copy);
+            if(narrowLayout) PaneBox.SelectedIndex=0;VM.Selected=copies[^1];RenderSelection();await Task.Delay(180);var container=GroupList.ContainerFromItem(copies[^1]) as ListViewItem;
+            Check(container is not null && copies[^1].CurrentHighlightOpacity==1 && group.CurrentHighlightOpacity==0,"Changing groups scrolls the selected group into view with a distinct highlight.");
+            var chosen=VM.DuplicatePhotos(group,[group.Photos[1]]);Check(chosen.Photos.Count==1 && group.Photos.Count==2 && chosen.Photos[0].AssetId==group.Photos[1].AssetId,"Selected-photo copy creates an independent shared-original group.");
+            VM.RemovePhotos(chosen,[chosen.Photos[0]]);Check(!VM.Groups.Contains(chosen),"Removing a group's last reference removes only that group.");
+            Check(await ArchiveService.HashAsync(wide)==hashes[0] && await ArchiveService.HashAsync(portrait)==hashes[1] && VM.Store.Jobs().Count==0,"Context edits preserve source bytes and create no archive jobs.");
+            if(narrowLayout) PaneBox.SelectedIndex=2;
+            foreach(var theme in new[]{ElementTheme.Light,ElementTheme.Dark}) { RequestedTheme=theme;await Task.Delay(80);Check(ArchiveFooter.ActualHeight>0,"Footer remains usable in "+theme+" theme."); }
+            App.MainWindow!.AppWindow.Resize(new(850,900));PaneBox.SelectedIndex=2;await Task.Delay(150);Check(narrowLayout && EditorPane.Visibility==Visibility.Visible,"Narrow review workspace remains usable.");
+            await VM.FlushWritesAsync();File.WriteAllText(Path.Combine(directory,"usability-verification.json"),JsonSerializer.Serialize(new { Status="Passed",Checks=checks,ApiCalls=VM.State.BatchCalls },new JsonSerializerOptions(StateStore.Json) { WriteIndented=true }));
+            VM.Status="交互验证通过 · 合成图片 · 不联网";
+        }
+        catch(Exception error) { File.WriteAllText(Path.Combine(directory,"usability-verification.json"),JsonSerializer.Serialize(new { Status="Failed",Error=error.ToString(),Checks=checks },StateStore.Json));VM.Status=error.Message; }
+    }
+    private static async Task<string> FixtureImageAsync(string path,uint width,uint height)
+    {
+        using var memory=new InMemoryRandomAccessStream();var encoder=await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId,memory);
+        var pixels=Enumerable.Repeat((byte)160,checked((int)(width*height*4))).ToArray();encoder.SetPixelData(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Ignore,width,height,96,96,pixels);await encoder.FlushAsync();
+        using var reader=new DataReader(memory.GetInputStreamAt(0));await reader.LoadAsync((uint)memory.Size);var data=new byte[(int)memory.Size];reader.ReadBytes(data);await File.WriteAllBytesAsync(path,data);return path;
+    }
+}
+#endif

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using CarArchive.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,6 +7,7 @@ namespace CarArchive;
 public sealed partial class MainPage
 {
     private IReadOnlyList<CategorySuggestion> categoryItems = [];
+    private CategorySearchIndex categorySearch=new([]);
     private string categorySignature = "";
     private string? suggestionsGroupId;
     private bool folderSuggestionsActive;
@@ -16,10 +16,7 @@ public sealed partial class MainPage
     private int categoryVersion;
     private Task categoryRefresh = Task.CompletedTask;
 
-    private string CategorySignature() => JsonSerializer.Serialize(new
-    {
-        Root = VM.State.Settings.ArchiveRoot.Trim(), VM.State.Names, VM.State.BrandFolders
-    }, StateStore.Json);
+    private string CategorySignature() => VM.State.Settings.ArchiveRoot.Trim();
 
     private Task RefreshCategoryCatalogAsync(bool force = false)
     {
@@ -34,12 +31,12 @@ public sealed partial class MainPage
         var ct = categoryCancellation.Token;
         var version = ++categoryVersion;
         var root = VM.State.Settings.ArchiveRoot;
-        var names = VM.State.Names.ToArray();
-        var brands = new Dictionary<string, string>(VM.State.BrandFolders);
+        var guide=VM.Naming.Guide;
         if (changed)
         {
             categoryItems = [];
-            CloseFolderSuggestions();
+            categorySearch=new([]);brandItems=[];brandSearch=new([]);
+            CloseFolderSuggestions();CloseBrandSuggestions();
             UpdateExistingCategories();
         }
         return categoryRefresh = LoadAsync();
@@ -48,11 +45,18 @@ public sealed partial class MainPage
         {
             try
             {
-                var result = await Task.Run(() => CategoryCatalogService.Scan(root, names, brands, ct), ct);
+                var (result,search,brands,brandIndex) = await Task.Run(() =>
+                {
+                    var catalog=CategoryCatalogService.Scan(root,ct);
+                    var brands=(catalog.BrandDirectories ?? []).Select(name=>new CategorySuggestion(name,name,Path.Combine(root,name),true)).ToArray();
+                    return (catalog,new CategorySearchIndex(catalog.Items,guide),brands,new CategorySearchIndex(brands));
+                }, ct);
                 if (categoryClosed || ct.IsCancellationRequested || version != categoryVersion) return;
                 categoryItems = result.Items;
+                categorySearch=search;brandItems=brands;brandSearch=brandIndex;
                 UpdateExistingCategories();
-                if (folderSuggestionsActive && FolderEdit.FocusState != FocusState.Unfocused) UpdateFolderSuggestions();
+                if (folderSuggestionsActive && InputFocused(FolderEdit)) UpdateFolderSuggestions();
+                if(brandSuggestionsActive && InputFocused(TargetBrandEdit)) UpdateBrandSuggestions();
                 if (result.Warnings.Count > 0) VM.Status = string.Join("；", result.Warnings.Take(3));
             }
             catch (OperationCanceledException) { }
@@ -76,10 +80,14 @@ public sealed partial class MainPage
     private void UpdateFolderSuggestions()
     {
         if (displayed?.Editable != true || displayed != VM.Selected) { CloseFolderSuggestions(); return; }
-        var matches = CategoryCatalogService.Match(categoryItems, FolderEdit.Text, TargetBrandEdit.Text);
+        var matches = categorySearch.Match(FolderEdit.Text, TargetBrandEdit.Text);
         suggestionsGroupId = displayed.Id;
-        FolderEdit.ItemsSource = matches;
-        FolderEdit.IsSuggestionListOpen = matches.Count > 0;
+        PresentSuggestions(FolderEdit,matches,reverseOrder:false);
+    }
+    private void OpenFolderSuggestions()
+    {
+        if(!initialized || rendering || displayed?.Editable!=true || displayed!=VM.Selected) return;
+        CloseBrandSuggestions();folderSuggestionsActive=true;UpdateFolderSuggestions();_=RefreshCategoryCatalogAsync(true);
     }
 
     private void Folder_Changed(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -87,11 +95,12 @@ public sealed partial class MainPage
         if (!initialized || rendering || displayed?.Editable != true || args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
         // The inner TextBox may deliver its text event after a programmatic render has finished.
         // Model-equal text is not a user edit and must not mark another group as manually named.
+        EnglishInput(sender);
         if (sender.Text.Trim() == displayed.FolderName) return;
         displayed.ManualName = true;
         displayed.FolderName = sender.Text.Trim();
         displayed.AppliedRule = "手动修改名称";
-        VM.MarkTouched(displayed);
+        CrashJournal.Trace("Archive.NameEdited",displayed.Id);VM.MarkTouched(displayed);
         displayed.Refresh();
         RuleText.Text = displayed.AppliedRule;
         var wasRendering = rendering;
@@ -122,6 +131,11 @@ public sealed partial class MainPage
     private void ApplyCategory(CategorySuggestion suggestion)
     {
         if (displayed?.Editable != true || displayed != VM.Selected) return;
+        var target=Path.Combine(VM.State.Settings.ArchiveRoot,suggestion.BrandDirectory,suggestion.FolderName);
+        if(!suggestion.Exists || !Directory.Exists(target))
+        {
+            CloseFolderSuggestions();VM.Status="该分类目录已不存在，请重新选择。";_=RefreshCategoryCatalogAsync(true);return;
+        }
         editorSaveTimer.Stop();
         FlushEditor();
         CategoryCatalogService.Apply(displayed, suggestion);

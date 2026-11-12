@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using CarArchive.Core;
@@ -12,26 +12,25 @@ string Area() { var p=Path.Combine(temp,Guid.NewGuid().ToString("N")); Directory
 PhotoGroup Group(string path) => new() { Photos=[new() { Path=path,OriginalPath=path }],GroupConfirmed=true };
 async Task<string> Source(string area,string name="photo.jpg",string content="original photo bytes") { var p=Path.Combine(area,name); await File.WriteAllTextAsync(p,content); return p; }
 
-Test("Default names preserve body, chassis and facelift; unknown trim falls back to series",()=> {
-    Assert(NamingService.DefaultName(new() { Brand="Audi",Series="A4",Body="Avant",Package="S-line",Code="B9",Phase="Facelift" })=="A4 Avant S-line (B9 Facelift)");
-    Assert(NamingService.DefaultName(new() { Series="S-Class",Code="W223" })=="S-Class (W223)");
+Test("Default names use complete model and ordinal generation, never Body or a chassis fallback",()=> {
+    Assert(NamingService.DefaultName(new() { Brand="Example",Series="A4",Variant="A4 Avant S-line",Body="Avant",Generation="5th Generation",Package="S-line",Code="B9",Phase="Facelift" })=="A4 Avant S-line (5th Facelift)");
+    Assert(NamingService.DefaultName(new() { Series="S-Class",Code="W223" })=="S-Class");
     Assert(NamingService.DefaultName(new() { Series="Swift",Generation="5th",Phase="Pre-Facelift" })=="Swift (5th)"); return Task.CompletedTask;
 });
-Test("Category catalog merges disk and remembered endpoints using brand mappings without writing files",async ()=> {
+Test("Category catalog exposes only physical archive endpoints and ignores learned names",async ()=> {
     var root=Area();var disk=Path.Combine(root,"Benz","S-Class (W223)");Directory.CreateDirectory(disk);
     var source=await Source(disk);var hash=await ArchiveService.HashAsync(source);
     var directories=Directory.GetDirectories(root,"*",SearchOption.AllDirectories).Order().ToArray();
     var catalog=CategoryCatalogService.Scan(root,[new("1","Mercedes-Benz","s-class (w223)"),new("2","Mercedes-Benz","E-Class (W214)"),new("3","Audi","S-Class (W223)")],new Dictionary<string,string> { ["Mercedes-Benz"]="Benz" });
-    Assert(catalog.Items.Count==3 && catalog.Warnings.Count==0);
-    var existing=catalog.Items.Single(item=>item.Exists);Assert(existing.BrandDirectory=="Benz" && existing.FolderName=="S-Class (W223)" && existing.TargetPath==disk);
-    Assert(catalog.Items.Any(item=>item.BrandDirectory=="Audi") && catalog.Items.Count(item=>!item.Exists)==2);
+    Assert(catalog.Items.Count==1 && catalog.Warnings.Count==0);
+    var existing=catalog.Items.Single();Assert(existing.Exists && existing.BrandDirectory=="Benz" && existing.FolderName=="S-Class (W223)" && existing.TargetPath==disk);
     Assert(directories.SequenceEqual(Directory.GetDirectories(root,"*",SearchOption.AllDirectories).Order()) && await ArchiveService.HashAsync(source)==hash);
 });
-Test("Category suggestions match multiple keywords, case and whitespace, retaining distinct brand targets",()=> {
+Test("Category suggestions match multiple keywords, case and whitespace, excluding non-existing targets",()=> {
     var items=new[] { new CategorySuggestion("Audi","A4 Avant (B9 Facelift)","a",true),new("Other","A4 Avant (B9 Facelift)","b",true),new("Benz","S-Class (W223)","c",false) };
     Assert(CategoryCatalogService.Match(items,"  a4   b9 FACELIFT ","Audi").Count==2);
-    Assert(CategoryCatalogService.Match(items,"benz w223","").Single().TargetPath=="c");
-    Assert(CategoryCatalogService.Match(items,"absent","").Count==0 && CategoryCatalogService.Match(items,"  ","").Count==0);
+    Assert(CategoryCatalogService.Match(items,"benz w223","").Count==0);
+    Assert(CategoryCatalogService.Match(items,"absent","").Count==0 && CategoryCatalogService.Match(items,"  ","").Count==2);
     Assert(CategoryCatalogService.Match(items,"b9","").Count==2);return Task.CompletedTask;
 });
 Test("Category suggestions rank exact then prefix then substring, prefer current brand within rank, and cap at twenty",()=> {
@@ -40,43 +39,49 @@ Test("Category suggestions rank exact then prefix then substring, prefer current
     items.AddRange(Enumerable.Range(0,50).Select(i=>new CategorySuggestion("Audi","A4 "+i,"extra"+i,true)));
     Assert(CategoryCatalogService.Match(items,"a4","Audi",100).Count==20);return Task.CompletedTask;
 });
-Test("Category catalog switches roots without reusing old endpoints and tolerates missing roots and incomplete memories",()=> {
+Test("Category catalog switches roots without reusing old endpoints and ignores learned-only targets",()=> {
     var first=Area();var second=Area();Directory.CreateDirectory(Path.Combine(first,"Audi","A4"));Directory.CreateDirectory(Path.Combine(second,"Benz","S-Class"));
-    Assert(CategoryCatalogService.Scan(second,[],new Dictionary<string,string>()).Items.Single().FolderName=="S-Class");
+    var switched=CategoryCatalogService.Scan(second,[],new Dictionary<string,string>());
+    Assert(switched.Items.Count==1 && switched.Items.Single().FolderName=="S-Class");
     var missing=Path.Combine(second,"not-created");
     var catalog=CategoryCatalogService.Scan(missing,[new("1","Audi","A4"),new("2","","unknown"),new("3","Audi","..\\escape")],new Dictionary<string,string>());
-    Assert(catalog.Items.Count==1 && !catalog.Items[0].Exists && !Directory.Exists(missing));
-    Assert(CategoryCatalogService.Scan("",[new("1","Audi","A4")],new Dictionary<string,string>()).Items.Single().TargetPath=="");return Task.CompletedTask;
+    Assert(catalog.Items.Count==0 && !Directory.Exists(missing));
+    Assert(CategoryCatalogService.Scan("",[new("1","Audi","A4")],new Dictionary<string,string>()).Items.Count==0);return Task.CompletedTask;
 });
-Test("Applying an endpoint changes only selected group archive fields and never creates a directory",()=> {
+Test("Applying an existing endpoint changes only selected group fields and creates no directory",()=> {
     var root=Area();var target=Path.Combine(root,"Benz","S-Class (W223)");
+    Directory.CreateDirectory(target);
     var identity=new CarIdentity { Brand="Other",Series="Unknown" };var group=new PhotoGroup { Confirmed=identity,FolderName="before",TargetBrand="Other" };var other=new PhotoGroup { FolderName="untouched" };
-    CategoryCatalogService.Apply(group,new("Benz","S-Class (W223)",target,false));
+    CategoryCatalogService.Apply(group,new("Benz","S-Class (W223)",target,true));
     Assert(group.FolderName=="S-Class (W223)" && group.TargetBrand=="Benz" && group.ManualName && group.PreviousFolderName=="before");
-    Assert(ReferenceEquals(identity,group.Confirmed) && identity.Brand=="Other" && other.FolderName=="untouched" && !Directory.Exists(target));return Task.CompletedTask;
+    Assert(ReferenceEquals(identity,group.Confirmed) && identity.Brand=="Other" && other.FolderName=="untouched" && Directory.Exists(target));return Task.CompletedTask;
 });
 Test("Category selection rejects working, archived, and invalid targets without partial changes",async ()=> {
     foreach(var group in new[] { new PhotoGroup { Archived=true },new PhotoGroup { TaskState=GroupTaskState.Running },new PhotoGroup { TaskState=GroupTaskState.Queued } })
         await Throws<InvalidOperationException>(()=>Task.Run(()=>CategoryCatalogService.Apply(group,new("Audi","A4","",true))));
     var editable=new PhotoGroup { FolderName="original",TargetBrand="Audi" };
-    await Throws<ArgumentException>(()=>Task.Run(()=>CategoryCatalogService.Apply(editable,new("..","A4","",false))));
+    await Throws<ArgumentException>(()=>Task.Run(()=>CategoryCatalogService.Apply(editable,new("..","A4","",true))));
+    await Throws<InvalidOperationException>(()=>Task.Run(()=>CategoryCatalogService.Apply(editable,new("Audi","Remembered-only","",false))));
     Assert(editable.FolderName=="original" && editable.TargetBrand=="Audi");
 });
-Test("Category scan supports cancellation and refreshed remembered names",async ()=> {
+Test("Category scan supports cancellation and refreshes physical directory names",async ()=> {
     using var cancellation=new CancellationTokenSource();cancellation.Cancel();
     await Throws<OperationCanceledException>(()=>Task.Run(()=>CategoryCatalogService.Scan("",[new("1","Audi","A4")],new Dictionary<string,string>(),cancellation.Token)));
-    var names=new List<LearnedName> { new("1","Audi","Old name") };
-    names[0]=names[0] with { FolderName="New name" };var catalog=CategoryCatalogService.Scan("",names,new Dictionary<string,string>());
-    Assert(CategoryCatalogService.Match(catalog.Items,"old","").Count==0 && CategoryCatalogService.Match(catalog.Items,"new","").Count==1);
+    var root=Area();Directory.CreateDirectory(Path.Combine(root,"Audi","Old name"));
+    var before=CategoryCatalogService.Scan(root,[],new Dictionary<string,string>());
+    Directory.Move(Path.Combine(root,"Audi","Old name"),Path.Combine(root,"Audi","New name"));
+    var after=CategoryCatalogService.Scan(root,[],new Dictionary<string,string>());
+    Assert(CategoryCatalogService.Match(before.Items,"old","").Count==1 && CategoryCatalogService.Match(after.Items,"old","").Count==0
+        && CategoryCatalogService.Match(after.Items,"new","").Count==1);
 });
-Test("Learned exact names precede vocabulary rules and stay isolated by generation",()=> {
+Test("Legacy exact names no longer bypass new generation and display-only Body rules",()=> {
     var naming=new NamingService(); var state=new WorkspaceState(); var identity=new CarIdentity { Brand="Mercedes-Benz",Series="E-Class",Body="Estate",Code="S212" };
     state.Rules.Add(new() { Brand="Mercedes-Benz",From="Estate",To="Station Wagon" });
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class Station Wagon (S212)");
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class");
     naming.Remember(identity,"Benz E-Class Estate AMG-Line (S212)",state);
-    Assert(naming.Suggest(identity,state,[]).Name=="Benz E-Class Estate AMG-Line (S212)"); identity.Code="S214";
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class Station Wagon (S214)"); state.Rules[0].Enabled=false;
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class Estate (S214)"); return Task.CompletedTask;
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); identity.Code="S214";
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); state.Rules[0].Enabled=false;
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); return Task.CompletedTask;
 });
 Test("Learning only generalizes explicit vocabulary substitutions",()=> {
     var naming=new NamingService(); Assert(naming.ProposeRule("E-Class Estate (S212)","E-Class Station Wagon (S212)","Benz")?.From=="Estate");
@@ -85,7 +90,7 @@ Test("Learning only generalizes explicit vocabulary substitutions",()=> {
 Test("Brand rules override global rules without recursive substitution",()=> {
     var state=new WorkspaceState(); state.Rules.Add(new() { From="Estate",To="Wagon" });
     state.Rules.Add(new() { Brand="Benz",From="Estate",To="Station Wagon" }); state.Rules.Add(new() { From="Station Wagon",To="Estate" });
-    var naming=new NamingService(); Assert(naming.Suggest(new() { Brand="Benz",Series="E-Class",Body="Estate" },state,[]).Name=="E-Class Station Wagon"); return Task.CompletedTask;
+    var naming=new NamingService(); Assert(naming.Suggest(new() { Brand="Benz",Series="E-Class",Variant="E-Class Estate",Body="Estate" },state,[]).Name=="E-Class Station Wagon"); return Task.CompletedTask;
 });
 Test("Windows invalid directory segments are rejected",async ()=> {
     foreach(var segment in new[] { "..","CON","NUL.txt","bad/name","bad\\name","bad.","" }) await Throws<ArgumentException>(()=>Task.Run(()=>NamingService.SafeSegment(segment)));
@@ -232,6 +237,12 @@ Test("Requests include real search tool, image data, revision and no stored inte
     var service=new GeminiService(client,new FakeImages(),()=>"test-key",()=>{}); var result=await service.RecognizeAsync([new Photo()],new(),false,default); Assert(seen && !result.Grounded);
 });
 V2Tests.Register(Test);
+NamingTests.Register(Test);
+CategorySearchTests.Register(Test);
+UsabilityTests.Register(Test);
+VerificationTests.Register(Test);
+LocalLearningTests.Register(Test);
+PortableDataTests.Register(Test);
 var failures=0; var started=DateTimeOffset.Now;
 foreach(var test in tests) { try { await test.Test(); Console.WriteLine("PASS "+test.Name); } catch(Exception e) { failures++; Console.WriteLine("FAIL "+test.Name+"\n"+e); } }
 Console.WriteLine($"{tests.Count-failures}/{tests.Count} passed in {(DateTimeOffset.Now-started).TotalSeconds:F2}s. Fixtures: {temp}");

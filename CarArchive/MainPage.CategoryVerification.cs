@@ -31,7 +31,16 @@ public sealed partial class MainPage
             VM.State.Names.Add(new("fixture-audi","Audi","a4 avant (b9 facelift)"));
             VM.State.BrandFolders["Mercedes-Benz"]="Benz";
             VM.Selected=first;RenderSelection();await RefreshCategoryCatalogAsync();
-            if(categoryItems.Count!=5 || first.ManualName) throw new Exception("Initial catalog merge or programmatic-load guard failed.");
+            if(categoryItems.Count!=4 || categoryItems.Any(item=>!item.Exists) || first.ManualName) throw new Exception("Disk-only catalog or programmatic-load guard failed.");
+            FolderEdit.Text="A4 avnat B9";FolderEdit.Focus(FocusState.Programmatic);OpenFolderSuggestions();await categoryRefresh;await Task.Delay(150);
+            var matches=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.ToArray() ?? [];
+            if(!FolderEdit.IsSuggestionListOpen || matches.Length==0 || matches[0].FolderName!="A4 Avant (B9 Facelift)" || matches[0].BrandDirectory!="Audi")
+                throw new Exception("Focus-triggered fuzzy suggestions did not open or rank correctly.");
+            if(first.ManualName || first.FolderName!="Original manual name" || matches.Any(item=>item.DisplayName!=item.FolderName+" / "+item.BrandDirectory))
+                throw new Exception("Opening suggestions modified the group or changed the compact model/brand presentation.");
+            CloseFolderSuggestions();OpenFolderSuggestions();await categoryRefresh;
+            if(!FolderEdit.IsSuggestionListOpen) throw new Exception("Reopening suggestions without editing input failed.");
+            CloseFolderSuggestions();RenderSelection();
             var chosen=categoryItems.First(item=>item.BrandDirectory=="Benz" && item.Exists);
             suggestionsGroupId=first.Id;ChooseCategory(chosen);
             if(first.TargetBrand!="Benz" || first.FolderName!="S-Class (W223)" || first.Confirmed.Brand!="Audi" || !first.ManualName) throw new Exception("Endpoint synchronization failed.");
@@ -51,7 +60,7 @@ public sealed partial class MainPage
             var timer=DispatcherQueue.CreateTimer();timer.Interval=TimeSpan.FromMilliseconds(250);string previous="";
             timer.Tick+=(_,_)=>
             {
-                var snapshot=JsonSerializer.Serialize(new { Status="Passed",PreflightChecks=4,Root=VM.State.Settings.ArchiveRoot,Selected=displayed?.Id,
+                var snapshot=JsonSerializer.Serialize(new { Status="Passed",PreflightChecks=7,Root=VM.State.Settings.ArchiveRoot,Selected=displayed?.Id,
                     Input=FolderEdit.Text,Brand=TargetBrandEdit.Text,Target=TargetPathText.Text,Open=FolderEdit.IsSuggestionListOpen,
                     Suggestions=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.Select(item=>new { item.FolderName,item.BrandDirectory,item.Exists }).ToArray(),
                     Groups=VM.Groups.Select(group=>new { group.Id,group.FolderName,group.TargetBrand,group.ManualName,IdentityBrand=group.Confirmed.Brand }).ToArray(),

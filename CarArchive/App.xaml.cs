@@ -1,60 +1,81 @@
-﻿using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+﻿using CarArchive.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Windows.Storage.Pickers;
 
 namespace CarArchive;
 
-/// <summary>
-/// Provides application-specific behavior to supplement the default Application class.
-/// </summary>
 public partial class App : Application
 {
-    private Window? _window;
+    private Window? window;
     public static MainWindow? MainWindow { get; private set; }
-    private System.Threading.Mutex? instanceMutex;
-    
-    /// <summary>
-    /// Initializes the singleton application object.  This is the first line of authored code
-    /// executed, and as such is the logical equivalent of main() or WinMain().
-    /// </summary>
+    private WorkspaceLease? workspaceLease;
     public App()
     {
+        UnhandledException+=(_,e)=>CrashJournal.Current?.Capture("WinUI",e.Exception);
+        AppDomain.CurrentDomain.UnhandledException+=(_,e)=> { if(e.ExceptionObject is Exception error) CrashJournal.Current?.Capture("AppDomain",error); };
+        TaskScheduler.UnobservedTaskException+=(_,e)=>CrashJournal.Trace("Task.Unobserved."+e.Exception.GetType().Name);
         InitializeComponent();
-#if DEBUG
-        AppDomain.CurrentDomain.ProcessExit+=(_,_)=> { try { System.IO.File.AppendAllText(System.IO.Path.Combine(ViewModels.MainViewModel.DataDirectory,"lifecycle.log"),$"ProcessExit {DateTimeOffset.Now:O} code={Environment.ExitCode}\n"); }catch { } };
-#endif
-        UnhandledException += (_, e) =>
-        {
-            try { System.IO.Directory.CreateDirectory(ViewModels.MainViewModel.DataDirectory); System.IO.File.AppendAllText(System.IO.Path.Combine(ViewModels.MainViewModel.DataDirectory,"crash.log"),$"{DateTimeOffset.Now:O} {e.Exception}\n"); } catch { }
-        };
     }
-
-    /// <summary>
-    /// Invoked when the application is launched.
-    /// </summary>
-    /// <param name="args">Details about the launch request and process.</param>
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(ViewModels.MainViewModel.DataDirectory.ToUpperInvariant())));
-        instanceMutex=new System.Threading.Mutex(true,"Local\\CarArchive-"+hash,out var firstInstance);
-        if(!firstInstance) { Exit(); return; }
-        MainWindow = new MainWindow();
-#if DEBUG
-        MainWindow.Closed+=(_,_)=> { try { System.IO.File.AppendAllText(System.IO.Path.Combine(ViewModels.MainViewModel.DataDirectory,"lifecycle.log"),$"WindowClosed {DateTimeOffset.Now:O}\n{Environment.StackTrace}\n"); }catch { } };
-#endif
-        _window = MainWindow;
-        _window.Activate();
+        var data=PortableData.ResolveDirectory();
+        // Test harnesses always provide a fresh explicit data directory and never show migration UI.
+        if(Environment.GetEnvironmentVariable("CARARCHIVE_DATA_DIR") is { Length:>0 } || File.Exists(Path.Combine(data,"cararchive.db")) || File.Exists(Path.Combine(data,"workspace-id.txt")))
+        {
+            try { StartWorkspace(data); }catch(Exception error) { ShowStartup(error.Message); }
+            return;
+        }
+        ShowStartup(null);
+    }
+    private void StartWorkspace(string data)
+    {
+        PortableData.EnsureWritable(data);workspaceLease=WorkspaceLease.Acquire(data);
+        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER",Path.Combine(data,"webview"));
+        CrashJournal.Current=new(Path.Combine(data,"crashes"));
+        CrashJournal.Trace("Window.Creating");var previous=window;MainWindow=new MainWindow();
+        CrashJournal.Trace("Window.Activating");window=MainWindow;window.Activate();previous?.Close();CrashJournal.Trace("Window.Ready");
+    }
+    private void ShowStartup(string? error)
+    {
+        var startup=new Window { Title="CarArchive · 数据工作区" };
+        var root=new Grid { Padding=new Thickness(28) };root.Children.Add(new TextBlock { Text="正在准备本版本的数据目录…",TextWrapping=TextWrapping.Wrap });startup.Content=root;window=startup;
+        var once=false;root.Loaded+=async (_,_)=>
+        {
+            if(once) return;once=true;
+            if(error is not null)
+            {
+                await new ContentDialog { XamlRoot=root.XamlRoot,Title="无法启动工作区",Content=error,CloseButtonText="关闭" }.ShowAsync();startup.Close();return;
+            }
+            var data=PortableData.ResolveDirectory();
+            try
+            {
+                // Probe the package root without creating Data, keeping import atomic and non-overwriting.
+                PortableData.EnsureWritable(Path.GetDirectoryName(data)!);
+                var sources=new ComboBox { Header="导入来源（旧版必须先关闭）",HorizontalAlignment=HorizontalAlignment.Stretch,MinWidth=450,ItemsSource=PortableData.DiscoverSources(data) };
+                if(sources.Items.Count>0) sources.SelectedIndex=0;
+                var browse=new Button { Content="选择其他数据目录…" };
+                var message=new TextBlock { Text="每个版本的数据独立保存。导入会复制数据库、缓存、命名指南和加密 Key；旧数据保持不变。\n当前版本："+data,TextWrapping=TextWrapping.Wrap };
+                var panel=new StackPanel { Spacing=14 };panel.Children.Add(message);panel.Children.Add(sources);panel.Children.Add(browse);
+                var dialog=new ContentDialog { XamlRoot=root.XamlRoot,Title="建立本版本工作区",Content=panel,PrimaryButtonText="导入所选数据",SecondaryButtonText="创建空工作区",CloseButtonText="退出",IsPrimaryButtonEnabled=sources.SelectedItem is not null };
+                browse.Click+=async (_,_)=>
+                {
+                    var picker=new FolderPicker();picker.FileTypeFilter.Add("*");WinRT.Interop.InitializeWithWindow.Initialize(picker,WinRT.Interop.WindowNative.GetWindowHandle(startup));
+                    var folder=await picker.PickSingleFolderAsync();if(folder is null) return;
+                    var selected=new PortableDataSource(folder.Path,DateTime.Now);sources.ItemsSource=new[]{selected};sources.SelectedIndex=0;dialog.IsPrimaryButtonEnabled=true;
+                };
+                dialog.PrimaryButtonClick+=async (_,eventArgs)=>
+                {
+                    var deferral=eventArgs.GetDeferral();dialog.IsPrimaryButtonEnabled=false;dialog.IsSecondaryButtonEnabled=false;browse.IsEnabled=false;sources.IsEnabled=false;
+                    try { if(sources.SelectedItem is not PortableDataSource selected) throw new InvalidOperationException("请选择旧版本 Data 或原 CarArchive 数据目录。");await PortableData.ImportAsync(selected.Path,data); }
+                    catch(Exception e) { eventArgs.Cancel=true;message.Text=e.Message; }
+                    finally { dialog.IsPrimaryButtonEnabled=true;dialog.IsSecondaryButtonEnabled=true;browse.IsEnabled=true;sources.IsEnabled=true;deferral.Complete(); }
+                };
+                var choice=await dialog.ShowAsync();if(choice==ContentDialogResult.None) { startup.Close();return; }
+                StartWorkspace(data);
+            }
+            catch(Exception e) { await new ContentDialog { XamlRoot=root.XamlRoot,Title="数据初始化失败",Content=e.Message,CloseButtonText="关闭" }.ShowAsync();startup.Close(); }
+        };
+        startup.Activate();
     }
 }

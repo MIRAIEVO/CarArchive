@@ -80,7 +80,7 @@ public sealed partial class MainPage
             Check(a.IsWorking && b.IsWorking && fake.Calls==2,"Two recognition requests did not run concurrently.");
             VM.Selected=c;RenderSelection();BrandEdit.Text="Manual Brand";SeriesEdit.Text="Manual C";FolderEdit.Text="Manual C Folder";TargetBrandEdit.Text="Manual Brand";FlushEditor();
             fake.Complete(b.Photos[0].Id,new() { Brand="Fixture Brand",Series="Car Beta",Code="TEST" });await taskB;
-            Check(VM.Selected==c && BrandEdit.Text=="Manual Brand" && c.FolderName=="Manual C Folder" && b.FolderName=="Car Beta (TEST)","Out-of-order completion overwrote the selected editor or failed automatic naming.");
+            Check(VM.Selected==c && BrandEdit.Text=="Manual Brand" && c.FolderName=="Manual C Folder" && b.FolderName=="Car Beta","Out-of-order completion overwrote the selected editor or failed automatic naming.");
             var taskD=VM.RunGroupAsync(d,"验证查询 D",false,ct=>VM.RecognizeAsync(d,false,ct));
             var releaseFile=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var taskC=VM.RunGroupAsync(c,"验证归档 C",true,async ct=> { await releaseFile.Task.WaitAsync(ct);await VM.ArchiveAsync(c,ct); });
@@ -118,7 +118,7 @@ public sealed partial class MainPage
         catch(Exception error) { report["Status"]="Failed";report["Error"]=error.ToString();VM.Status="开发验证失败："+error.Message; }
         finally {
             VM.Recognition=actualRecognizer;VM.Archive.DiagnosticTrace=null;VM.Tasks.CancelAll();App.MainWindow!.AppWindow.Show();heartbeat.Stop();report["MaxUiHeartbeatGapMs"]=maxDelay;report["Checks"]=checks;
-            report["RealGeminiTokenComparison"]="Not performed: no user API key used; transport tests validate one image, nine fields, one request and the configured budget.";
+            report["RealGeminiTokenComparison"]="Not performed: no user API key used; transport tests validate one image, ten fields, one request and the configured budget; naming guide stays local.";
             report["RealVehicleAccuracy"]="Not tested; requires real labeled car photos and an API key.";
             await File.WriteAllTextAsync(Path.Combine(directory,"desktop-verification.json"),JsonSerializer.Serialize(report,new JsonSerializerOptions { WriteIndented=true }));
         }

@@ -84,6 +84,8 @@ public sealed class CarIdentity
     public string Code { get; set; } = "";
     public string Phase { get; set; } = "";
     public string Package { get; set; } = "";
+    public string ProductionYears { get; set; } = "";
+    [JsonIgnore] public string NamingKey => "naming-v3|" + string.Join("|", new[] { Brand, Series, NamingText.FullModel(this), NamingText.Generation(Generation), Code, NamingText.Phase(Phase), Package, ProductionYears }.Select(s => s.Trim().ToLowerInvariant()));
     public string Key => string.Join("|", new[] { Brand, Series, Variant, Body, Generation, Code, Phase, Package }.Select(s => s.Trim().ToLowerInvariant()));
     public CarIdentity Clone() => (CarIdentity)MemberwiseClone();
 }
@@ -91,6 +93,12 @@ public sealed class CarIdentity
 public sealed record Citation(string Title, string Url, string Claim);
 public sealed class RecognitionResult
 {
+    public List<ReferenceFeature> Features { get; set; } = [];
+    public List<FeatureComparison> Checks { get; set; } = [];
+    public string Summary { get; set; } = "";
+    public string SupplementQuery { get; set; } = "";
+    public bool ConfigVerified { get; set; }
+    public VerificationReport? Verification { get; set; }
     public CarIdentity Identity { get; set; } = new();
     public string SuggestedName { get; set; } = "";
     public string Observations { get; set; } = "";
@@ -114,6 +122,10 @@ public sealed class RecognitionResult
 
 public sealed class PhotoGroup : Observable
 {
+    private bool isCurrent;
+    [JsonIgnore] public bool IsCurrent { get=>isCurrent;set { if(Set(ref isCurrent,value)) Notify(nameof(CurrentHighlightOpacity)); } }
+    [JsonIgnore] public double CurrentHighlightOpacity=>IsCurrent?1:0;
+
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public ObservableCollection<Photo> Photos { get; set; } = [];
     public string RepresentativeId { get; set; } = "";
@@ -134,6 +146,8 @@ public sealed class PhotoGroup : Observable
     [JsonIgnore] public string TaskLabel => TaskState switch { GroupTaskState.Queued=>TaskKind+" · 排队",GroupTaskState.Running=>TaskKind+" · 进行中",GroupTaskState.Completed=>TaskKind+" · 已完成",GroupTaskState.Failed=>TaskKind+" · "+LastError,GroupTaskState.Canceled=>TaskKind+" · 已取消",_=>State };
     public string State { get; set; } = "待复核分组";
     public RecognitionResult? Suggestion { get; set; }
+    public VerificationReport? Verification { get; set; }
+    public List<VerificationReport> VerificationHistory { get; set; } = [];
     public CarIdentity Confirmed { get; set; } = new();
     public string FolderName { get; set; } = "";
     public string TargetBrand { get; set; } = "";
@@ -172,6 +186,9 @@ public sealed class AppSettings
 public sealed class WorkspaceState
 {
     public int SchemaVersion { get; set; }
+    public string WorkspaceId { get; set; } = Guid.NewGuid().ToString("N");
+    public List<NamingLearningSample> NamingSamples { get; set; } = [];
+    public List<LocalNamingRule> LocalNamingRules { get; set; } = [];
     public List<ImageAsset> Assets { get; set; } = [];
     public List<PhotoGroup> Groups { get; set; } = [];
     public AppSettings Settings { get; set; } = new();
@@ -222,5 +239,6 @@ public interface IPhotoService
 public interface IRecognitionService
 {
     Task<RecognitionResult> RecognizeAsync(IReadOnlyList<Photo> photos, AppSettings settings, bool verifyAgain, CancellationToken ct);
-    Task<List<List<string>>> GroupAsync(IReadOnlyList<Photo> photos, AppSettings settings, CancellationToken ct);
+    Task<VerificationReport> VerifyAsync(IReadOnlyList<Photo> photos, AppSettings settings, CarIdentity candidate, string questions, CancellationToken ct)
+        => throw new NotSupportedException("当前识别后端不支持特征查证。");
 }

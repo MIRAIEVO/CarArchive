@@ -43,13 +43,21 @@ var orientedPreviewPath=await service.EnsurePreviewAsync(p,default);var oriented
 var previewTop=(50*(int)orientedPreview.W+50)*4;var previewBottom=(350*(int)orientedPreview.W+50)*4;
 Check(orientedPreview.W==200 && orientedPreview.H==400 && orientedPreview.Pixels[previewTop+2]>180 && orientedPreview.Pixels[previewTop]<80 && orientedPreview.Pixels[previewBottom]>180 && orientedPreview.Pixels[previewBottom+2]<80,"Oriented preview pixels were scrambled or rotated incorrectly.");
 Check(before==await ArchiveService.HashAsync(oriented),"Analysis changed original bytes.");Console.WriteLine("PASS oriented JPEG preview, analysis and original preservation");
+var portraitThumbnail=await DecodeAsync(await File.ReadAllBytesAsync(await service.EnsureThumbnailAsync(p,default)));
+Check(portraitThumbnail.W<portraitThumbnail.H && portraitThumbnail.W*2==portraitThumbnail.H,"Portrait thumbnail lost its complete oriented aspect ratio.");
+var portraitTop=(20*(int)portraitThumbnail.W+20)*4;var portraitBottom=(((int)portraitThumbnail.H-20)*(int)portraitThumbnail.W+20)*4;
+Check(portraitThumbnail.Pixels[portraitTop+2]>180 && portraitThumbnail.Pixels[portraitBottom]>180,"Portrait thumbnail discarded an image edge.");
+Console.WriteLine("PASS complete portrait thumbnail orientation and edge pixels");
+var poison=Path.Combine(root,"old-cropped-thumb.jpg");await File.WriteAllBytesAsync(poison,await PhotoService.ConnectivityImageAsync());p.ThumbnailPath=poison;
+var rebuilt=await service.EnsureThumbnailAsync(p,default);Check(rebuilt!=poison && PhotoService.CurrentThumbnail(rebuilt),"Legacy cropped thumbnail was reused.");
+Console.WriteLine("PASS legacy cropped thumbnail replaced by versioned full-frame cache");
 pair.Reference.Crop=new(.25,0,.5,1);var cropped=await DecodeAsync(await service.AnalysisJpegAsync(pair.Reference,2048,default));Check(cropped.W==200 && cropped.H==200,"Normalized crop dimensions failed.");Console.WriteLine("PASS normalized crop");
 var retryService=new PhotoService(Path.Combine(root,"retry-cache"));var retry=PhotoService.Register(ordinary).Reference;
 using(var locked=new FileStream(ordinary,FileMode.Open,FileAccess.ReadWrite,FileShare.None)) Check(await retryService.EnsurePreviewAsync(retry,default)=="","Expected locked-file preview failure.");
 Check((await retryService.EnsurePreviewAsync(retry,default)).Length>0 && retry.Error.Length==0,"Failed preview task could not be retried.");Console.WriteLine("PASS preview retry after file lock");
 var cached=await retryService.EnsurePreviewAsync(retry,default);File.Move(ordinary,Path.Combine(root,"relocated.jpg"));
 Check(await retryService.EnsurePreviewAsync(retry,default)==cached && retry.Error.Contains("位置"),"Moving an original broke existing cached previews or mislabeled it as a codec failure.");Console.WriteLine("PASS cached history preview after original relocation");
-Console.WriteLine("8/8 native image tests passed. "+root);
+Console.WriteLine("10/10 native image tests passed. "+root);
 if(args.Length>0)
 {
     var probe=new PhotoService(Path.Combine(root,"provided-image"));var photo=PhotoService.Register(args[0]).Reference;

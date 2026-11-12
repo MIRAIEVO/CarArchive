@@ -9,3 +9,9 @@ CarArchive/artifacts/
 verification-output/
 .tools/
 artifacts/
+
+# Portable user data and local verification output
+**/Data/
+**/gemini-key.bin
+verification-*.log
+core-review-tests.log

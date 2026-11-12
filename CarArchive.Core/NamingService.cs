@@ -4,36 +4,23 @@ namespace CarArchive.Core;
 
 public sealed class NamingService
 {
+    public NamingGuide? Guide { get; set; }
     public static string DefaultName(CarIdentity car)
     {
-        var model = string.IsNullOrWhiteSpace(car.Variant) ? car.Series : car.Variant;
-        var parts = new[] { model, car.Body, car.Package }.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-        var suffix = new List<string>();
-        if (car.Code.Length > 0) suffix.Add(car.Code); else if (car.Generation.Length > 0) suffix.Add(car.Generation);
-        if (car.Phase.Length > 0 && !car.Phase.Equals("Pre-Facelift", StringComparison.OrdinalIgnoreCase)) suffix.Add(car.Phase);
-        return Regex.Replace(string.Join(" ", parts) + (suffix.Count > 0 ? $" ({string.Join(" ", suffix)})" : ""), @"\s+", " ").Trim();
+        return NamingGuideEngine.Generate(car,new()).Name;
     }
+    public string ResolveBrand(string brand,WorkspaceState state)=>Guide?.Index.ResolveBrand(brand,state) ?? NamingGuideBuilder.MapBrand(brand,state);
     public (string Name, string Reason) Suggest(CarIdentity identity, WorkspaceState state, IEnumerable<string> existing)
     {
-        var remembered = state.Names.LastOrDefault(n => n.IdentityKey == identity.Key);
-        if (remembered is not null) return (remembered.FolderName, "已确认的车型名称");
-        var name = DefaultName(identity); var applied = new List<string>();
-        var rules=state.Rules.Select((r,i)=>(Rule:r,Index:i))
-            .Where(x=>x.Rule.Enabled && x.Rule.From.Length>0 && (x.Rule.Brand.Length==0 || x.Rule.Brand.Equals(identity.Brand,StringComparison.OrdinalIgnoreCase)))
-            .OrderByDescending(x=>x.Rule.Brand.Length>0).ThenByDescending(x=>x.Index)
-            .GroupBy(x=>x.Rule.From,StringComparer.OrdinalIgnoreCase).ToDictionary(g=>g.Key,g=>g.First().Rule,StringComparer.OrdinalIgnoreCase);
-        if(rules.Count>0)
-        {
-            var pattern=@"(?<!\w)(?:"+string.Join("|",rules.Keys.OrderByDescending(s=>s.Length).Select(Regex.Escape))+@")(?!\w)";
-            name=Regex.Replace(name,pattern,match=> { var rule=rules[match.Value]; applied.Add(rule.Description); return rule.To; },RegexOptions.IgnoreCase);
-        }
+        var guide=Guide is not null && (Guide.SourceRoot.Length==0 || Guide.SourceRoot.Equals(state.Settings.ArchiveRoot,StringComparison.OrdinalIgnoreCase))?Guide:null;
+        var decision=NamingGuideEngine.Generate(identity,state,guide);var name=decision.Name;
         var match = existing.FirstOrDefault(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase));
-        return (match ?? name, match is not null ? "匹配已有目录" : string.Join("；", applied.DefaultIfEmpty("默认英文命名")));
+        return (match ?? name, decision.Reason+(match is not null?"；匹配规范名称的已有目录":""));
     }
     public void Remember(CarIdentity identity, string folder, WorkspaceState state)
     {
-        state.Names.RemoveAll(n => n.IdentityKey == identity.Key);
-        state.Names.Add(new(identity.Key, identity.Brand, folder));
+        state.Names.RemoveAll(n => n.IdentityKey == identity.Key || n.IdentityKey == identity.NamingKey);
+        state.Names.Add(new(identity.NamingKey, identity.Brand, folder));
     }
     public NamingRule? ProposeRule(string before, string after, string brand)
     {

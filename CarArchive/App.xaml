@@ -10,6 +10,25 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+   <!-- Use a uniform Fluent stroke instead of the native elevation/underline gradients. -->
+   <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="AccentFillColorDefaultBrush"/>
+   <StaticResource x:Key="ButtonBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="AccentButtonBorderBrush" ResourceKey="AccentFillColorDefaultBrush"/>
+   <StaticResource x:Key="AccentButtonBorderBrushPointerOver" ResourceKey="AccentFillColorSecondaryBrush"/>
+   <StaticResource x:Key="AccentButtonBorderBrushPressed" ResourceKey="AccentFillColorTertiaryBrush"/>
+   <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="ControlStrokeColorDefaultBrush"/>
+   <StaticResource x:Key="ComboBoxBorderBrushFocused" ResourceKey="AccentFillColorDefaultBrush"/>
+   <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="Transparent"/>
+   <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushChecked" Color="Transparent"/>
+   <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPointerOver" Color="Transparent"/>
+   <SolidColorBrush x:Key="AppBarToggleButtonBorderBrushCheckedPressed" Color="Transparent"/>
+   <Thickness x:Key="TextControlBorderThemeThickness">1</Thickness>
+   <Thickness x:Key="TextControlBorderThemeThicknessFocused">2</Thickness>
             <local:SafeImageSourceConverter x:Key="SafeImageSourceConverter"/>
         </ResourceDictionary>
     </Application.Resources>

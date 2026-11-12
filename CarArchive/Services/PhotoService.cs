@@ -14,6 +14,8 @@ namespace CarArchive.Services;
 public sealed class PhotoService
     : IPhotoService
 {
+    public static bool CurrentThumbnail(string path)=>Path.GetFileName(path).EndsWith("-thumb-full-v2.jpg",StringComparison.OrdinalIgnoreCase);
+    public void ClearCompletedRequests() { foreach(var entry in jobs) if(entry.Value.IsValueCreated && entry.Value.Value.IsCompleted) jobs.TryRemove(entry.Key,out _); }
     private readonly string cacheDirectory;
     private readonly SynchronizationContext? ui=SynchronizationContext.Current;
     private readonly SemaphoreSlim decoders=new(2,2);
@@ -66,23 +68,15 @@ public sealed class PhotoService
         string? key=null;
         try
         {
-            key=Key(photo,"thumb");
+            key=Key(photo,"thumb-full-v2");
             var path=await jobs.GetOrAdd(key,_=>new(()=>Task.Run(async ()=> {
                 await decoders.WaitAsync();
                 try {
-                    var target=Path.Combine(cacheDirectory,key+"-thumb.jpg"); if(File.Exists(target)) return target;
+                    var target=Path.Combine(cacheDirectory,key+"-thumb-full-v2.jpg"); if(File.Exists(target)) return target;
                     var file=await StorageFile.GetFileFromPathAsync(photo.Path);
-                    using(var cached=await file.GetThumbnailAsync(ThumbnailMode.PicturesView,256,ThumbnailOptions.ReturnOnlyIfCached))
-                    {
-                        if(cached is not null && cached.Type==ThumbnailType.Image)
-                        {
-                            using var reader=new DataReader(cached.GetInputStreamAt(0)); await reader.LoadAsync((uint)cached.Size); var bytes=new byte[(int)cached.Size]; reader.ReadBytes(bytes); await AtomicWriteAsync(target,bytes); return target;
-                        }
-                    }
-                    using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
-                    byte[] data;
-                    try { using var embedded=await decoder.GetThumbnailAsync();var small=await BitmapDecoder.CreateAsync(embedded);data=await EncodeAsync(small,256,null); }
-                    catch { data=await EncodeAsync(decoder,256,null); }
+                    using var stream=await file.OpenReadAsync();var decoder=await BitmapDecoder.CreateAsync(stream);
+                    // Always derive a complete oriented frame, never a cropped shell or EXIF thumbnail.
+                    var data=await EncodeAsync(decoder,256,null);
                     await AtomicWriteAsync(target,data); return target;
                 } finally { decoders.Release(); }
             }))).Value.WaitAsync(ct);

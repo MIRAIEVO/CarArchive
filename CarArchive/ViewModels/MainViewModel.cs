@@ -5,9 +5,9 @@ using CarArchive.Services;
 
 namespace CarArchive.ViewModels;
 
-public sealed class MainViewModel : Observable
+public sealed partial class MainViewModel : Observable
 {
-    public static string DataDirectory=>Environment.GetEnvironmentVariable("CARARCHIVE_DATA_DIR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"CarArchive");
+    public static string DataDirectory=>PortableData.ResolveDirectory();
     public WorkspaceState State { get; }
     public ObservableCollection<PhotoGroup> Groups { get; }
     public IStateStore Store { get; }
@@ -31,7 +31,7 @@ public sealed class MainViewModel : Observable
     private PhotoGroup? selected;
     private bool busy;
     private string status="拖入照片开始整理。点击照片即设为代表图；不再需要确认分组。";
-    public PhotoGroup? Selected { get=>selected; set { if(Set(ref selected,value)) SelectionChanged(); } }
+    public PhotoGroup? Selected { get=>selected; set { if(!ReferenceEquals(selected,value)) { if(selected is not null) selected.IsCurrent=false;if(Set(ref selected,value)) { if(value is not null) value.IsCurrent=true;CrashJournal.Trace("Group.Select",value?.Id);SelectionChanged(); } } } }
     public bool SelectedCanDeleteGroups => !Busy && Selected is not null && !Selected.IsWorking;
     public bool CanDeleteAllArchivedGroups => !Busy && Groups.Any(g=>g.Archived) && Groups.Where(g=>g.Archived).All(g=>!g.IsWorking);
     public bool Busy { get=>busy;set { if(Set(ref busy,value)) { Notify(nameof(Idle));Notify(nameof(SelectedCanDeleteGroups));Notify(nameof(CanDeleteAllArchivedGroups)); } } }
@@ -54,7 +54,7 @@ public sealed class MainViewModel : Observable
     {
         writes=writes.ContinueWith(_=> {
             try { action();if(fullSnapshot) writeError=null; }
-            catch(Exception e) { writeError=e;ui?.Post(_=>Status="本地记录保存失败，已阻止后续归档："+e.Message,null);throw; }
+            catch(Exception e) { CrashJournal.Trace("Persistence.Failed."+e.GetType().Name);writeError=e;ui?.Post(_=>Status="本地记录保存失败，已阻止后续归档："+e.Message,null);throw; }
         },CancellationToken.None,TaskContinuationOptions.None,TaskScheduler.Default);
     }
     public async Task FlushWritesAsync() { await writes;if(writeError is not null) throw new IOException("本地记录未安全保存，请检查磁盘空间后重试保存。",writeError); }
@@ -71,6 +71,7 @@ public sealed class MainViewModel : Observable
     public void RemoveGroups(IReadOnlyCollection<PhotoGroup> groups)
     {
         var targets=groups.Distinct().ToList();
+        CrashJournal.Trace("Groups.Remove",Selected?.Id,targets.Count);
         if(targets.Count==0) throw new InvalidOperationException("请先在分组列表中选择要删除的分组。");
         if(targets.Any(g=>!Groups.Contains(g))) throw new InvalidOperationException("所选分组中有已不存在的项目，请重新选择。");
         if(targets.Any(g=>g.IsWorking)) throw new InvalidOperationException("正在执行任务的分组不能删除，请等待任务完成或取消。");
@@ -106,8 +107,8 @@ public sealed class MainViewModel : Observable
     public void MarkTouched(PhotoGroup group) { group.UserTouched=true; group.Revision++; }
     public void SelectPhoto(PhotoGroup group,Photo photo)
     {
-        if(!group.IsWorking) { group.RepresentativeId=photo.Id; MarkTouched(group); }
-        group.LastViewedId=photo.Id; SaveGroup(group);
+        if(!group.IsWorking) { if(group.RepresentativeId!=photo.Id && group.Verification is not null) { group.VerificationHistory.Add(group.Verification);group.Verification=null; }group.RepresentativeId=photo.Id; MarkTouched(group); }
+        CrashJournal.Trace("Photo.Select",group.Id);group.LastViewedId=photo.Id; SaveGroup(group);
     }
     public async Task ImportAsync(IEnumerable<string> paths,bool singleGroup,CancellationToken ct)
     {
@@ -173,7 +174,9 @@ public sealed class MainViewModel : Observable
     public async Task RunGroupAsync(PhotoGroup group,string kind,bool fileOperation,Func<CancellationToken,Task> action)
     {
         MarkTouched(group);
-        await Tasks.RunAsync(group,kind,fileOperation,action,()=> { SaveGroup(group);GroupUpdated?.Invoke(group); },shutdown.Token);
+        CrashJournal.Trace("Task.Start."+kind,group.Id);
+        try { await Tasks.RunAsync(group,kind,fileOperation,action,()=> { SaveGroup(group);GroupUpdated?.Invoke(group); },shutdown.Token); }
+        finally { CrashJournal.Trace("Task.End."+group.TaskState,group.Id); }
     }
     public AppSettings CaptureSettings()=>JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(State.Settings,StateStore.Json),StateStore.Json)!;
     public async Task RecognizeAsync(PhotoGroup group,bool deep,CancellationToken ct,AppSettings? capturedSettings=null)
@@ -181,29 +184,45 @@ public sealed class MainViewModel : Observable
         if(group.Archived) throw new InvalidOperationException("已归档组请先撤销。");
         var settings=capturedSettings ?? CaptureSettings();
         var photos=group.Photos.Where(p=>!p.Excluded).OrderByDescending(p=>p.Id==group.RepresentativeId).Select(p=>p.Snapshot()).ToList();
-        var result=await Recognition.RecognizeAsync(photos,settings,deep,ct);
-        if(!deep && settings.Mode==RecognitionMode.Accurate && (!result.Grounded || result.Uncertainties.Length>0 || result.Alternatives.Count>0) && State.BatchCalls<State.Settings.BatchCallLimit)
+        if(deep)
         {
-            try {
-                var second=await Recognition.RecognizeAsync(photos,settings,true,ct);
-                if(second.Identity.Key!=result.Identity.Key) { second.Conflict=true;second.Uncertainties+="\n两次判断不一致，请人工核对。"; }
-                second.InputTokens+=result.InputTokens;second.OutputTokens+=result.OutputTokens;
-                second.ThinkingTokens=second.ThinkingTokens.HasValue && result.ThinkingTokens.HasValue?second.ThinkingTokens+result.ThinkingTokens:null;
-                second.SearchCount=second.SearchCount.HasValue && result.SearchCount.HasValue?second.SearchCount+result.SearchCount:null;
-                second.Queries=result.Queries.Concat(second.Queries).Distinct().ToList();second.Sources=result.Sources.Concat(second.Sources).Distinct().ToList();result=second;
-            } catch(OperationCanceledException) { throw; }
-            catch(Exception e) { result.Conflict=true;result.Uncertainties+="\n追加核验未完成："+e.Message; }
+            if(group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先联网识别或填写待查证车型。");
+            var report=await Recognition.VerifyAsync(photos,settings,group.Confirmed.Clone(),group.Suggestion?.Uncertainties ?? "核对车系、代次、改款及具体版本是否有照片证据",ct);
+            StoreVerification(group,report);group.State=report.StatusText;SaveGroup(group);
+            if(report.Status==VerificationStatus.Canceled) throw new OperationCanceledException(ct);
+            if(report.Status==VerificationStatus.Incomplete) throw new IOException(report.Error);
+            return;
         }
-        ct.ThrowIfCancellationRequested();
+        var result=await Recognition.RecognizeAsync(photos,settings,false,ct);
+        ct.ThrowIfCancellationRequested();await PrepareNamingGuideAsync();ct.ThrowIfCancellationRequested();
         group.Suggestion=result;group.Confirmed=result.Identity.Clone();
-        group.PreviousFolderName=group.FolderName; GenerateName(group);
-        group.State=result.Grounded?"已返回联网结果 · 待人工复核":"未完成查证 · 可人工复核";
+        if(result.Verification is not null) StoreVerification(group,result.Verification);
+        else group.Verification=null;
+        if(!group.ManualName) { group.PreviousFolderName=group.FolderName; GenerateName(group); }
+        else group.AppliedRule="保留本次手动命名；识别字段已更新，可点击重新生成名称";
+        group.State=result.Verification?.StatusText ?? (result.Grounded?"已返回联网结果 · 待人工复核":"未完成查证 · 可人工复核");
         SaveGroup(group);
+    }
+    private static void StoreVerification(PhotoGroup group,VerificationReport report)
+    {
+        if(group.Verification is not null) group.VerificationHistory.Add(group.Verification);
+        group.Verification=report;
+    }
+    public void ApplyVerification(PhotoGroup group)
+    {
+        RequireEditable(group);var report=group.Verification;
+        if(report?.SuggestedIdentity is not { } identity || report.Status is VerificationStatus.Incomplete or VerificationStatus.Canceled or VerificationStatus.NotRun)
+            throw new InvalidOperationException("没有可以采用的完整修正建议。");
+        if(group.Confirmed.NamingKey!=report.Candidate.NamingKey) throw new InvalidOperationException("分类字段已改变，请重新查证后采用建议。");
+        group.Confirmed=identity.Clone();
+        if(!group.ManualName) { group.PreviousFolderName=group.FolderName;GenerateName(group); }
+        else group.AppliedRule="已采用查证修正；保留手动名称，可重新生成";
+        MarkTouched(group);group.State="已采用查证建议 · 待人工复核";SaveGroup(group);
     }
     public void GenerateName(PhotoGroup group)
     {
-        var brand=State.BrandFolders.FirstOrDefault(p=>p.Key.Equals(group.Confirmed.Brand,StringComparison.OrdinalIgnoreCase)).Value ?? (group.TargetBrand.Length>0?group.TargetBrand:group.Confirmed.Brand);
-        var suggestion=Naming.Suggest(group.Confirmed,State,NamingService.ExistingNames(State.Settings.ArchiveRoot,brand));
+        var brand=group.Confirmed.Brand.Length>0?Naming.ResolveBrand(group.Confirmed.Brand,State):group.TargetBrand;
+        var suggestion=Naming.Suggest(group.Confirmed,State,Naming.Guide?.Inventory.Where(entry=>entry.Brand.Equals(brand,StringComparison.OrdinalIgnoreCase)).Select(entry=>entry.Folder) ?? []);
         group.FolderName=suggestion.Name;group.LastGeneratedName=suggestion.Name;group.TargetBrand=brand;group.AppliedRule=suggestion.Reason;group.ManualName=false;group.Refresh();
     }
     private void RequireEditable(PhotoGroup group)
@@ -213,14 +232,16 @@ public sealed class MainViewModel : Observable
     }
     public void Split(PhotoGroup group,IReadOnlyList<Photo> chosen)
     {
+        CrashJournal.Trace("Photos.Split",group.Id,chosen.Count);
         RequireEditable(group);if(chosen.Count==0 || chosen.Count==group.Photos.Count) throw new InvalidOperationException("请选中需要拆出的部分照片。");
         var newGroup=new PhotoGroup { Photos=new(chosen),UserTouched=true,State="待识别" };
         foreach(var p in chosen) group.Photos.Remove(p);
-        group.UserTouched=true;group.Revision++;group.Suggestion=null;group.State="分组已改变";
+        group.UserTouched=true;group.Revision++;group.Suggestion=null;if(group.Verification is not null) group.VerificationHistory.Add(group.Verification);group.Verification=null;group.State="分组已改变";
         Groups.Insert(Groups.IndexOf(group)+1,newGroup); Selected=newGroup;Save();StructureUpdated?.Invoke();
     }
     public void Merge(IReadOnlyList<PhotoGroup> groups)
     {
+        CrashJournal.Trace("Groups.Merge",Selected?.Id,groups.Count);
         if(groups.Count<2) throw new InvalidOperationException("请多选至少两个分组。");
         foreach(var g in groups) RequireEditable(g);
         var merged=new PhotoGroup { Photos=new(GroupingService.Sort(groups.SelectMany(g=>g.Photos))),UserTouched=true,State="待识别" };
@@ -231,19 +252,30 @@ public sealed class MainViewModel : Observable
     {
         RequireEditable(group);
         MarkTouched(group);
-        var copy=new PhotoGroup { Photos=new(group.Photos.Select(p=>p.CopyReference(true))),UserTouched=true,State="复制组 · 可框选另一辆车" };
-        copy.RepresentativeId=copy.Photos.FirstOrDefault(p=>p.AssetId==group.Photos.FirstOrDefault(x=>x.Id==group.RepresentativeId)?.AssetId)?.Id ?? copy.Photos.FirstOrDefault()?.Id ?? "";
+        var copy=GroupPhotoEditor.Copy(group,group.Photos.ToList());
         Groups.Insert(Groups.IndexOf(group)+1,copy);Selected=copy;Save();StructureUpdated?.Invoke();return copy;
     }
-    public NamingRule? Learn(PhotoGroup group,bool explicitly)
+    public PhotoGroup DuplicatePhotos(PhotoGroup group,IReadOnlyList<Photo> selected)
     {
-        if(State.Settings.Learning==LearningMode.Manual && !explicitly) return null;
+        RequireEditable(group);var copy=GroupPhotoEditor.Copy(group,selected);MarkTouched(group);
+        Groups.Insert(Groups.IndexOf(group)+1,copy);Selected=copy;Save();StructureUpdated?.Invoke();return copy;
+    }
+    public void RemovePhotos(PhotoGroup group,IReadOnlyList<Photo> selected)
+    {
+        RequireEditable(group);var chosen=GroupPhotoEditor.Validate(group,selected);
+        CrashJournal.Trace("Photos.RemoveReferences",group.Id,chosen.Count);
+        if(chosen.Count==group.Photos.Count) { RemoveGroups([group]);return; }
+        foreach(var photo in chosen) group.Photos.Remove(photo);
+        if(!group.Photos.Any(p=>p.Id==group.RepresentativeId)) group.RepresentativeId=group.Photos[0].Id;
+        if(!group.Photos.Any(p=>p.Id==group.LastViewedId)) group.LastViewedId=group.RepresentativeId;
+        group.Suggestion=null;if(group.Verification is not null) group.VerificationHistory.Add(group.Verification);group.Verification=null;group.State="照片已移除 · 请复核";MarkTouched(group);SaveGroup(group);StructureUpdated?.Invoke();
+    }
+    public IReadOnlyList<LocalNamingRule> Learn(PhotoGroup group,bool explicitly)
+    {
+        if(State.Settings.Learning==LearningMode.Manual && !explicitly) return [];
         Naming.Remember(group.Confirmed,group.FolderName,State);
         if(group.Confirmed.Brand.Length>0 && group.TargetBrand.Length>0) State.BrandFolders[group.Confirmed.Brand]=NamingService.SafeSegment(group.TargetBrand);
-        var rule=Naming.ProposeRule(group.LastGeneratedName,group.FolderName,group.Confirmed.Brand);
-        if(rule is not null && !State.Rules.Any(r=>r.Brand==rule.Brand && r.From==rule.From && r.To==rule.To))
-        { if(State.Settings.Learning==LearningMode.Automatic) { State.Rules.Add(rule);rule=null; } } else rule=null;
-        SaveHeader();return rule;
+        var pending=LocalNamingLearning.RecordConfirmed(group,State,explicitly);SaveHeader();return pending;
     }
     public async Task ArchiveAsync(PhotoGroup group,CancellationToken ct,string? capturedRoot=null)
     {
@@ -266,30 +298,6 @@ public sealed class MainViewModel : Observable
             StructureUpdated?.Invoke();
         }
         Status="已归档；共享原图将在所有使用它的分组归档后删除。";
-    }
-    public async Task VisualGroupAsync(CancellationToken ct)
-    {
-        var targets=Groups.Where(g=>g.Editable && g.Suggestion is null).ToList();
-        var photos=GroupingService.Sort(targets.SelectMany(g=>g.Photos).Where(p=>!p.Excluded));
-        if(photos.Count==0) throw new InvalidOperationException("没有可重新分组的照片。");
-        foreach(var g in targets) { MarkTouched(g);g.TaskKind="视觉分组";g.TaskState=GroupTaskState.Running;SaveGroup(g); }
-        try {
-            var adjacent=new HashSet<(string,string)>();
-            for(var start=0;start<photos.Count;start+=22)
-            {
-                var batch=photos.Skip(start).Take(24).ToList();var settings=CaptureSettings();var suggestions=await Tasks.WithRecognitionSlotAsync(token=>Recognition.GroupAsync(batch,settings,token),ct);
-                foreach(var ids in suggestions) { var set=ids.ToHashSet();for(var i=1;i<batch.Count;i++) if(set.Contains(batch[i-1].Id)&&set.Contains(batch[i].Id)) adjacent.Add((batch[i-1].Id,batch[i].Id)); }
-                if(start+24>=photos.Count) break;
-            }
-            var proposed=new List<List<string>>();for(var i=0;i<photos.Count;i++) { if(i==0 || !adjacent.Contains((photos[i-1].Id,photos[i].Id))) proposed.Add([]);proposed[^1].Add(photos[i].Id); }
-            var groups=GroupingService.FromVisual(photos,proposed);
-            var excluded=targets.SelectMany(g=>g.Photos).Where(p=>p.Excluded).ToList();if(excluded.Count>0) groups.Add(new() { Photos=new(excluded),State="已排除照片" });
-            var replaceSelection=Selected is not null && targets.Contains(Selected);
-            foreach(var g in targets) Groups.Remove(g);
-            foreach(var g in groups) { g.UserTouched=true;g.State="待识别";Groups.Add(g); }
-            if(replaceSelection) Selected=groups.FirstOrDefault();
-            Save();StructureUpdated?.Invoke();Status="视觉分组完成，当前显示的分组可直接识别。";
-        } finally { foreach(var g in targets.Where(Groups.Contains)) { g.TaskState=GroupTaskState.Idle;SaveGroup(g); } }
     }
     public void Navigate(int delta) { if(Groups.Count>0) Selected=Groups[Math.Clamp((Selected is null?0:Groups.IndexOf(Selected))+delta,0,Groups.Count-1)]; }
     public async Task UndoLastAsync(CancellationToken ct)

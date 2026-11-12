@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
 namespace CarArchive.Core;
@@ -20,16 +20,32 @@ public sealed class StateStore : IStateStore
         cmd.ExecuteNonQuery();
     }
     private SqliteConnection Open() { var db=new SqliteConnection(connectionString); db.Open(); return db; }
+    public string BackupNamingData()
+    {
+        lock(gate)
+        {
+            var path=Path.Combine(directory,"cararchive.pre-naming-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".db");
+            using var source=Open();using var target=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=path,Pooling=false }.ToString());
+            target.Open();source.BackupDatabase(target);return path;
+        }
+    }
     public WorkspaceState Load()
     {
         lock(gate)
         {
             using var db=Open(); using var cmd=db.CreateCommand(); cmd.CommandText="SELECT json FROM workspace WHERE id=1";
             var json=cmd.ExecuteScalar() as string;
-            var state=json is null?new WorkspaceState { SchemaVersion=2 }:JsonSerializer.Deserialize<WorkspaceState>(json,Json) ?? throw new InvalidDataException("本地数据库无法读取。请保留文件并恢复备份。");
+            var state=json is null?new WorkspaceState { SchemaVersion=2, WorkspaceId=File.Exists(Path.Combine(directory,"workspace-id.txt"))?File.ReadAllText(Path.Combine(directory,"workspace-id.txt")).Trim():Guid.NewGuid().ToString("N") }:JsonSerializer.Deserialize<WorkspaceState>(json,Json) ?? throw new InvalidDataException("本地数据库无法读取。请保留文件并恢复备份。");
+            // Additive 1.3 fields still share the v2 tables. Back up once before saving the upgraded header.
+            using var oldHeader=json is null?null:JsonDocument.Parse(json);
+            if(oldHeader is not null && !oldHeader.RootElement.TryGetProperty("NamingSamples",out _))
+            {
+                var backupPath=Path.Combine(directory,"cararchive.pre-1.3.db");
+                if(!File.Exists(backupPath)) { using var backup=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=backupPath,Pooling=false }.ToString());backup.Open();db.BackupDatabase(backup); }
+            }
             if(state.SchemaVersion<2)
             {
-                using var backup=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=Path.Combine(directory,"cararchive.pre-v2-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".db") }.ToString());
+                using var backup=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=Path.Combine(directory,"cararchive.pre-v2-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".db"),Pooling=false }.ToString());
                 backup.Open(); db.BackupDatabase(backup);
                 state.Settings.Mode=RecognitionMode.FieldsOnly; state.SchemaVersion=2; NormalizeAssets(state); Save(state); return state;
             }
@@ -40,6 +56,7 @@ public sealed class StateStore : IStateStore
             cmd.CommandText="SELECT id,json FROM assets_v2";
             using(var reader=cmd.ExecuteReader()) while(reader.Read()) { var text=reader.GetString(1); assetCache[reader.GetString(0)]=text; state.Assets.Add(JsonSerializer.Deserialize<ImageAsset>(text,Json)!); }
             NormalizeAssets(state);
+            LocalNamingLearning.Reconcile(state);
             foreach(var group in state.Groups.Where(g=>g.IsWorking)) { group.TaskState=GroupTaskState.Failed; group.LastError="应用重启，任务已中断；请手动重试或恢复归档。"; }
             return state;
         }
@@ -64,7 +81,7 @@ public sealed class StateStore : IStateStore
             p.Attach(asset);
         }
     }
-    private static string Header(WorkspaceState state)=>JsonSerializer.Serialize(new { SchemaVersion=2,state.Settings,state.Rules,state.Names,state.BrandFolders,state.BatchCalls,state.BatchId },Json);
+    private static string Header(WorkspaceState state)=>JsonSerializer.Serialize(new { SchemaVersion=2,state.WorkspaceId,state.NamingSamples,state.LocalNamingRules,state.Settings,state.Rules,state.Names,state.BrandFolders,state.BatchCalls,state.BatchId },Json);
     public Action CaptureSave(WorkspaceState state)
     {
         var header=Header(state);
