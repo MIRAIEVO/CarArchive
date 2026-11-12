@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -12,6 +14,9 @@ namespace CarArchive;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    internal static string AppIconPath => Path.Combine(AppContext.BaseDirectory,"Assets","AppIcon.ico");
+    internal static string TitleBarIconPath => Path.Combine(AppContext.BaseDirectory,"Assets","Square44x44Logo.scale-200.png");
+    internal bool HasTitleBarIcon => AppTitleBar.IconSource is ImageIconSource { ImageSource:BitmapImage image } && image.UriSource is { IsAbsoluteUri:true,IsFile:true } uri && File.Exists(uri.LocalPath);
     private bool sized;
     public void FitToDisplay(double scale)
     {
@@ -28,7 +33,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        AppWindow.SetIcon("Assets/AppIcon.ico");
+        AppWindow.SetIcon(AppIconPath);
+        AppTitleBar.IconSource = new ImageIconSource { ImageSource=new BitmapImage(new Uri(TitleBarIconPath,UriKind.Absolute)) };
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1540, 980));
 
         // Navigate the root frame to the main page on startup.

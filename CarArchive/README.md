@@ -1,4 +1,4 @@
-# CarArchive 1.1.2 使用说明
+# CarArchive 1.1.3 使用说明
 
 ## 开始使用
 
@@ -79,7 +79,7 @@ Key以DPAPI当前Windows用户加密，换机／换用户须重新输入。缓�
 ```powershell
 dotnet run --project ..\CarArchive.Tests\CarArchive.Tests.csproj
 dotnet run --project ..\CarArchive.PhotoTests\CarArchive.PhotoTests.csproj
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File ..\scripts\Package-Portable.ps1 -Version 1.1.2
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ..\scripts\Package-Portable.ps1 -Version 1.1.3
 ```
 
 Debug原生入口`--verify-v13 <报告目录>`必须配合隔离`CARARCHIVE_DATA_DIR`。测试不能代替真实车辆效果与账单。

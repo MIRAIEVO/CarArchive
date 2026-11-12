@@ -19,6 +19,7 @@ public sealed partial class MainPage
         try
         {
             Check(ViewModels.MainViewModel.DataDirectory.StartsWith(directory+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) && VM.Groups.Count==0,"Isolated test data.");
+            Check(File.Exists(MainWindow.AppIconPath) && File.Exists(MainWindow.TitleBarIconPath) && App.MainWindow!.HasTitleBarIcon,"Window and title-bar icons resolve to published image assets.");
             var root=Path.Combine(directory,"library");
             for(var i=0;i<30;i++) Directory.CreateDirectory(Path.Combine(root,"Mercedes-AMG","S 63 Coupe Edition "+i+" (C217)"));
             Directory.CreateDirectory(Path.Combine(root,"BMW"));
@@ -69,6 +70,8 @@ public sealed partial class MainPage
             var photoSelection=PhotoList.Resources["ListViewItemBackgroundSelected"] as Microsoft.UI.Xaml.Media.SolidColorBrush;
             PhotoList.SelectedItem=group.Photos[0];
             Check(PhotoList.SelectedItem==group.Photos[0] && groupSelection is not null && photoSelection is not null && groupSelection.Color==photoSelection.Color && Math.Abs(groupSelection.Opacity-photoSelection.Opacity)<.001,"Selected thumbnails use the same accent fill as selected groups.");
+            await Task.Delay(80);first=PhotoList.ContainerFromItem(group.Photos[0]) as ListViewItem;image1=first is null?null:VisualChild<Image>(first);
+            Check(first is not null && image1 is not null && Math.Abs(first.ActualWidth-image1.ActualWidth)<1,"Selected thumbnail background matches the displayed image width: "+JsonSerializer.Serialize(new { CellWidth=first?.ActualWidth,ImageWidth=image1?.ActualWidth }));
             PhotoList.SelectedItem=null;
             var copies=Enumerable.Range(0,65).Select(_=>GroupPhotoEditor.Copy(group,group.Photos.ToArray())).ToArray();foreach(var copy in copies) VM.Groups.Add(copy);
             if(narrowLayout) PaneBox.SelectedIndex=0;VM.Selected=copies[^1];RenderSelection();await Task.Delay(180);var container=GroupList.ContainerFromItem(copies[^1]) as ListViewItem;
