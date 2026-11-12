@@ -22,6 +22,10 @@ public sealed partial class MainPage
     }
     private void WireSuggestions(AutoSuggestBox box,Action open,Action close)
     {
+        box.Loaded+=(_,_)=>
+        {
+            HideSuggestionPopupUntilPositioned(box);
+        };
         box.PreviewKeyDown+=(_,args)=> { if(args.Key==VirtualKey.Escape) close(); };
         box.GotFocus+=(_,_)=>
         {
@@ -40,6 +44,20 @@ public sealed partial class MainPage
     }
     private static bool InputFocused(AutoSuggestBox box)=>VisualChild<TextBox>(box) is { } input && input.FocusState!=FocusState.Unfocused;
     private readonly Dictionary<AutoSuggestBox,int> popupVersions=[];
+    private readonly HashSet<Popup> suggestionPopups=[];
+    private void HideSuggestionPopupUntilPositioned(AutoSuggestBox box)
+    {
+        if(VisualChild<Popup>(box) is not { } popup || !suggestionPopups.Add(popup)) return;
+        popup.Opacity=0;
+        popup.Opened+=(_,_)=>
+        {
+            popup.Opacity=0;
+        };
+        popup.Closed+=(_,_)=>
+        {
+            popup.Opacity=0;
+        };
+    }
     private static Popup? SuggestionPopup(AutoSuggestBox box)
     {
         if(box.XamlRoot is not null && box.ItemsSource is IEnumerable<CategorySuggestion> source)
@@ -86,6 +104,7 @@ public sealed partial class MainPage
                     if(adjustOffset) { adjustedPopup=popup;adjustedVerticalOffset=popup.VerticalOffset; }
                     stable=0;return;
                 }
+                popup.Opacity=1;
             }
             if(SuggestionList(box) is not { } list) return;
             list.UpdateLayout();

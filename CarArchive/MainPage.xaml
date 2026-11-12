@@ -13,31 +13,35 @@
  </Page.Resources>
  <Grid Padding="12,0,12,10" RowSpacing="6">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-  <CommandBar DefaultLabelPosition="Right" Background="Transparent" ClosedDisplayMode="Compact">
-   <CommandBar.Content>
-    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-     <DropDownButton x:Name="ModeButton" BorderThickness="0" Background="Transparent" ToolTipService.ToolTip="选择联网识别模式">
-      <TextBlock x:Name="ModeLabel" Text="精简字段"/>
-      <DropDownButton.Flyout><Flyout x:Name="ModeFlyout" Opening="ModeFlyout_Opening"><StackPanel Width="280" Spacing="10">
-       <TextBlock x:Name="ModePopupTitle" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-       <TextBlock x:Name="ModeModelText" FontSize="12" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-       <Slider x:Name="ModeSlider" Minimum="0" Maximum="3" StepFrequency="1" TickFrequency="1" TickPlacement="BottomRight" SnapsTo="StepValues" IsThumbToolTipEnabled="False" ValueChanged="ModeSlider_Changed" AutomationProperties.Name="识别模式"/>
-       <TextBlock x:Name="ModeDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-       <HyperlinkButton Content="模型与检索设置" Click="ModeSettings_Click" HorizontalAlignment="Center"/>
-      </StackPanel></Flyout></DropDownButton.Flyout>
-     </DropDownButton>
-     <ComboBox x:Name="PaneBox" Width="80" SelectedIndex="1" Visibility="Collapsed" SelectionChanged="Pane_Changed"><ComboBoxItem Content="分组"/><ComboBoxItem Content="照片"/><ComboBoxItem Content="复核"/></ComboBox>
-    </StackPanel>
-   </CommandBar.Content>
-   <AppBarButton Icon="Add" Label="导入一组" Click="ImportGroup_Click"/>
-   <AppBarButton Icon="OpenFile" Label="批量导入" Click="ImportBatch_Click"/>
-   <CommandBar.SecondaryCommands>
-    <AppBarButton Icon="Setting" Label="设置" Click="Settings_Click"/>
-    <AppBarButton Icon="Edit" Label="命名学习" Click="Rules_Click"/>
-    <AppBarButton Icon="Clock" Label="操作记录与恢复" Click="History_Click"/>
-    <AppBarButton Icon="Undo" Label="撤销最近归档" Click="Undo_Click"/>
-   </CommandBar.SecondaryCommands>
-  </CommandBar>
+  <Grid x:Name="TopBar" Height="40" ColumnSpacing="8">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+    <DropDownButton x:Name="ModeButton" Height="36" BorderThickness="0" Background="Transparent" ToolTipService.ToolTip="选择联网识别模式">
+     <TextBlock x:Name="ModeLabel" Text="精简字段"/>
+     <DropDownButton.Flyout><Flyout x:Name="ModeFlyout" Opening="ModeFlyout_Opening"><StackPanel Width="280" Spacing="10">
+      <TextBlock x:Name="ModePopupTitle" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+      <TextBlock x:Name="ModeModelText" FontSize="12" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <Slider x:Name="ModeSlider" Minimum="0" Maximum="3" StepFrequency="1" TickFrequency="1" TickPlacement="BottomRight" SnapsTo="StepValues" IsThumbToolTipEnabled="False" ValueChanged="ModeSlider_Changed" AutomationProperties.Name="识别模式"/>
+      <TextBlock x:Name="ModeDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <HyperlinkButton Content="模型与检索设置" Click="ModeSettings_Click" HorizontalAlignment="Center"/>
+     </StackPanel></Flyout></DropDownButton.Flyout>
+    </DropDownButton>
+    <ComboBox x:Name="PaneBox" Width="80" SelectedIndex="1" Visibility="Collapsed" SelectionChanged="Pane_Changed"><ComboBoxItem Content="分组"/><ComboBoxItem Content="照片"/><ComboBoxItem Content="复核"/></ComboBox>
+   </StackPanel>
+   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+    <Button x:Name="ImportGroupButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportGroup_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="Add"/><TextBlock Text="导入一组"/></StackPanel></Button>
+    <Button x:Name="BatchImportButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportBatch_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="OpenFile"/><TextBlock Text="批量导入"/></StackPanel></Button>
+    <Button x:Name="MoreButton" Height="36" MinHeight="0" Padding="0" Width="36" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="更多命令">
+     <SymbolIcon Symbol="More"/>
+     <Button.Flyout><MenuFlyout>
+      <MenuFlyoutItem Icon="Setting" Text="设置" Click="Settings_Click"/>
+      <MenuFlyoutItem Icon="Edit" Text="命名学习" Click="Rules_Click"/>
+      <MenuFlyoutItem Icon="Clock" Text="操作记录与恢复" Click="History_Click"/>
+      <MenuFlyoutItem Icon="Undo" Text="撤销最近归档" Click="Undo_Click"/>
+     </MenuFlyout></Button.Flyout>
+    </Button>
+   </StackPanel>
+  </Grid>
   <Grid Grid.Row="1" ColumnSpacing="8">
    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <TextBlock Text="{x:Bind VM.Summary,Mode=OneWay}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
@@ -71,7 +75,7 @@
       <Canvas x:Name="CropCanvas" IsHitTestVisible="False"><Rectangle x:Name="CropOutline" Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2" Fill="#202080B0" Visibility="Collapsed"/></Canvas>
      </Grid>
     </Border>
-    <CommandBar x:Name="AnalysisBar" Grid.Row="2" DefaultLabelPosition="Right" ClosedDisplayMode="Compact" Background="Transparent">
+    <CommandBar x:Name="AnalysisBar" Grid.Row="2" Height="40" HorizontalAlignment="Center" DefaultLabelPosition="Right" ClosedDisplayMode="Compact" Background="Transparent">
      <AppBarToggleButton x:Name="CropToggle" Icon="Crop" Label="框选目标" Click="CropToggle_Click"/>
    <AppBarButton Icon="Find" Label="联网识别" Click="Recognize_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
    <AppBarButton Icon="Refresh" Label="深入查证" Click="Deep_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>

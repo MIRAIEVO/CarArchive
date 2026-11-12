@@ -1,11 +1,11 @@
-# CarArchive 1.1.1 · 车影归档
+# CarArchive 1.1.2 · 车影归档
 
 Windows 汽车照片分类工具：导入、调整分组、识别查证、人工确认后归档。采用 C#、.NET 10、WinUI 3、SQLite。
 
 - [使用说明](CarArchive/README.md)
 - [昨天与今天的升级记录](CHANGELOG.md)
 - [作者与协作署名](AUTHORS.md)
-- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.1.1/CarArchive-1.1.1-windows-x64.zip)
+- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.1.2/CarArchive-1.1.2-windows-x64.zip)
 
 完整解压 ZIP 后运行根目录 `CarArchive.exe`，保留 `Program`、`Data`、`Documentation`。发布包不含用户照片、数据库或 API Key。
 
@@ -25,7 +25,7 @@ Windows 汽车照片分类工具：导入、调整分组、识别查证、人工
 ```powershell
 dotnet run --project .\CarArchive.Tests\CarArchive.Tests.csproj
 dotnet run --project .\CarArchive.PhotoTests\CarArchive.PhotoTests.csproj
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Package-Portable.ps1 -Version 1.1.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Package-Portable.ps1 -Version 1.1.2
 ```
 
 发布包位于 `artifacts`。原生验证必须使用隔离的 `CARARCHIVE_DATA_DIR`，不要指向日常数据。
