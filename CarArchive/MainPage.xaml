@@ -29,8 +29,8 @@
     <ComboBox x:Name="PaneBox" Width="80" SelectedIndex="1" Visibility="Collapsed" SelectionChanged="Pane_Changed"><ComboBoxItem Content="分组"/><ComboBoxItem Content="照片"/><ComboBoxItem Content="复核"/></ComboBox>
    </StackPanel>
    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-    <Button x:Name="ImportGroupButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportGroup_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="Add"/><TextBlock Text="导入一组"/></StackPanel></Button>
-    <Button x:Name="BatchImportButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportBatch_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="OpenFile"/><TextBlock Text="批量导入"/></StackPanel></Button>
+    <Button x:Name="ImportGroupButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportGroup_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="Add"/><TextBlock x:Name="ImportGroupLabel" Text="导入一组" FontSize="12"/></StackPanel></Button>
+    <Button x:Name="BatchImportButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportBatch_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="OpenFile"/><TextBlock x:Name="BatchImportLabel" Text="批量导入" FontSize="12"/></StackPanel></Button>
     <Button x:Name="MoreButton" Height="36" MinHeight="0" Padding="0" Width="36" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="更多命令">
      <SymbolIcon Symbol="More"/>
      <Button.Flyout><MenuFlyout>

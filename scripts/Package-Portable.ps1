@@ -1,4 +1,4 @@
-param([string]$Version='1.1.3',[switch]$NoRestore)
+param([string]$Version='1.1.4',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -37,7 +37,7 @@ foreach($document in @('CHANGELOG.md','AUTHORS.md')) { Copy-Item -LiteralPath (J
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.1.3: reliable taskbar and title-bar icons, aligned thumbnail selection fill, and independent portable data.
+Release 1.1.4: left-aligned category and brand suggestions with horizontal transitions, and consistent import command typography.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8
 @'

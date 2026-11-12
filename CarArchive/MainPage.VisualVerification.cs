@@ -76,7 +76,7 @@ public sealed partial class MainPage
             VM.Status="";CropToggle.IsChecked=true;
             if(narrowLayout) PaneBox.SelectedIndex=1;await VM.FlushWritesAsync();
             File.WriteAllText(Path.Combine(directory,"visual-verification.json"),JsonSerializer.Serialize(new { Status="Passed",Checks=checks,RealApiCalls=0,Samples=originals.Length },new JsonSerializerOptions(StateStore.Json) { WriteIndented=true }));
-            App.MainWindow!.Title="CarArchive 1.1.2 · 视觉验证";
+            App.MainWindow!.Title="CarArchive 1.1.4 · 视觉验证";
         }
         catch(Exception error) { File.WriteAllText(Path.Combine(directory,"visual-verification.json"),JsonSerializer.Serialize(new { Status="Failed",Error=error.ToString(),Checks=checks },StateStore.Json));VM.Status=error.Message; }
     }
