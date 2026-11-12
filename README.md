@@ -5,7 +5,7 @@ Windows 汽车照片分类工具：导入、调整分组、识别查证、人工
 - [使用说明](CarArchive/README.md)
 - [昨天与今天的升级记录](CHANGELOG.md)
 - [作者与协作署名](AUTHORS.md)
-- [下载 Windows x64 便携版](artifacts/CarArchive-1.1-windows-x64.zip)
+- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.1/CarArchive-1.1-windows-x64.zip)
 
 完整解压 ZIP 后运行根目录 `CarArchive.exe`，保留 `Program`、`Data`、`Documentation`。发布包不含用户照片、数据库或 API Key。
 
