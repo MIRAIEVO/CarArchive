@@ -3,6 +3,7 @@ namespace CarArchive.Core;
 public sealed record CategorySuggestion(string BrandDirectory, string FolderName, string TargetPath, bool Exists)
 {
     public string DisplayName => FolderName+" / "+BrandDirectory;
+    public string BrandLabel => " / "+BrandDirectory;
 }
 
 public sealed record CategoryCatalogResult(IReadOnlyList<CategorySuggestion> Items, IReadOnlyList<string> Warnings, IReadOnlyList<string>? BrandDirectories=null);

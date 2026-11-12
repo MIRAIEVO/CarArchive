@@ -80,6 +80,7 @@ public sealed partial class MainPage
     private void UpdateFolderSuggestions()
     {
         if (displayed?.Editable != true || displayed != VM.Selected) { CloseFolderSuggestions(); return; }
+        if (string.IsNullOrWhiteSpace(FolderEdit.Text)) { CloseFolderSuggestions(); return; }
         var matches = categorySearch.Match(FolderEdit.Text, TargetBrandEdit.Text);
         suggestionsGroupId = displayed.Id;
         PresentSuggestions(FolderEdit,matches,reverseOrder:false);

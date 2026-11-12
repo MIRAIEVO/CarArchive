@@ -40,15 +40,32 @@ public sealed partial class MainPage
     }
     private static bool InputFocused(AutoSuggestBox box)=>VisualChild<TextBox>(box) is { } input && input.FocusState!=FocusState.Unfocused;
     private readonly Dictionary<AutoSuggestBox,int> popupVersions=[];
-    private static ListView? SuggestionList(AutoSuggestBox box)
+    private static Popup? SuggestionPopup(AutoSuggestBox box)
     {
         if(box.XamlRoot is not null && box.ItemsSource is IEnumerable<CategorySuggestion> source)
         {
             var items=source.ToArray();
             foreach(var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(box.XamlRoot))
-                if(popup.Child is { } child && VisualChild<ListView>(child) is { } list && list.Items.Count>0 && list.Items[0] is CategorySuggestion candidate && items.Contains(candidate)) return list;
+                if(popup.Child is { } child && VisualChild<ListView>(child) is { } list && list.Items.Count>0 && list.Items[0] is CategorySuggestion candidate && items.Contains(candidate)) return popup;
         }
-        return VisualChild<ListView>(box);
+        return null;
+    }
+    private static ListView? SuggestionList(AutoSuggestBox box)
+        => SuggestionPopup(box)?.Child is { } child?VisualChild<ListView>(child):VisualChild<ListView>(box);
+    private static bool SuggestionsAreBelow(AutoSuggestBox box)
+    {
+        var popup=SuggestionPopup(box);var input=VisualChild<TextBox>(box);
+        return popup?.Child is UIElement popupChild && input is not null &&
+            popupChild.TransformToVisual(input).TransformPoint(new(0,0)).Y>=input.ActualHeight-1;
+    }
+    private static bool KeepSuggestionsBelow(AutoSuggestBox box,Popup popup,bool adjustOffset)
+    {
+        if(popup.Child is not UIElement popupChild || VisualChild<TextBox>(box) is not { } input) return false;
+        var popupTop=popupChild.TransformToVisual(input).TransformPoint(new(0,0)).Y;
+        var targetTop=input.ActualHeight;
+        if(popupTop>=targetTop-1) return true;
+        if(adjustOffset) popup.VerticalOffset+=targetTop-popupTop;
+        return false;
     }
     private void PresentSuggestions(AutoSuggestBox box,IReadOnlyList<CategorySuggestion> matches,bool reverseOrder=true)
     {
@@ -56,10 +73,20 @@ public sealed partial class MainPage
         box.ItemsSource=items;box.IsSuggestionListOpen=items.Length>0;
         var version=popupVersions.GetValueOrDefault(box)+1;popupVersions[box]=version;
         if(items.Length==0) return;
-        var timer=DispatcherQueue.CreateTimer();timer.Interval=TimeSpan.FromMilliseconds(20);var tries=0;var stable=0;
+        var timer=DispatcherQueue.CreateTimer();timer.Interval=TimeSpan.FromMilliseconds(20);var tries=0;var stable=0;Popup? adjustedPopup=null;var adjustedVerticalOffset=0d;
         timer.Tick+=(_,_)=>
         {
             if(categoryClosed || !box.IsSuggestionListOpen || popupVersions.GetValueOrDefault(box)!=version || ++tries>25) { timer.Stop();return; }
+            if(SuggestionPopup(box) is { } popup)
+            {
+                if(popup.Child is FrameworkElement popupContent) popupContent.UpdateLayout();
+                var adjustOffset=!ReferenceEquals(adjustedPopup,popup) || Math.Abs(popup.VerticalOffset-adjustedVerticalOffset)>.5;
+                if(!KeepSuggestionsBelow(box,popup,adjustOffset))
+                {
+                    if(adjustOffset) { adjustedPopup=popup;adjustedVerticalOffset=popup.VerticalOffset; }
+                    stable=0;return;
+                }
+            }
             if(SuggestionList(box) is not { } list) return;
             list.UpdateLayout();
             if(VisualChild<ScrollViewer>(list) is not { } scroll || scroll.ViewportHeight<=0) return;

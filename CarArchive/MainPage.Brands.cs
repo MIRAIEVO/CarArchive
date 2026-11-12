@@ -21,6 +21,7 @@ public sealed partial class MainPage
     private void UpdateBrandSuggestions()
     {
         if(displayed?.Editable!=true || displayed!=VM.Selected) { CloseBrandSuggestions();return; }
+        if(string.IsNullOrWhiteSpace(TargetBrandEdit.Text)) { CloseBrandSuggestions();return; }
         brandsGroupId=displayed.Id;PresentSuggestions(TargetBrandEdit,brandSearch.Match(TargetBrandEdit.Text,TargetBrandEdit.Text));
     }
     private void Brand_Changed(AutoSuggestBox sender,AutoSuggestBoxTextChangedEventArgs args)

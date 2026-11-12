@@ -1,4 +1,4 @@
-param([string]$Version='1.1',[switch]$NoRestore)
+param([string]$Version='1.1.1',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -37,7 +37,7 @@ foreach($document in @('CHANGELOG.md','AUTHORS.md')) { Copy-Item -LiteralPath (J
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.1: verified vehicle naming, staged feature verification, scoped local naming learning, and independent portable data.
+Release 1.1.1: improved category and brand suggestions, thumbnail selection feedback, and independent portable data.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8
 @'
