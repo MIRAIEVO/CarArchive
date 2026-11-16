@@ -6,9 +6,10 @@ namespace CarArchive.Core;
 
 public static class NamingGuideBuilder
 {
+    private static readonly NamingGuide Mandatory=new() { BrandPolicies=NamingPolicies.Standard() };
     public static NamingGuide Build(string root, WorkspaceState state, IReadOnlyList<ArchiveJob>? jobs = null, CancellationToken ct = default)
     {
-        var guide=new NamingGuide { SourceRoot=root.Length>0?System.IO.Path.GetFullPath(root):"",SourceStateHash=NamingGuideStore.SourceStateHash(state,jobs) };
+        var guide=new NamingGuide { SourceRoot=root.Length>0?System.IO.Path.GetFullPath(root):"",SourceStateHash=NamingGuideStore.SourceStateHash(state,jobs),BrandPolicies=NamingPolicies.Standard() };
         if(root.Length==0 || !Directory.Exists(root)) return guide;
         var remembered=state.Names.Select((name,index)=>(Name:name,Identity:ReadIdentity(name),Order:index+1)).ToList();
         var dates=(jobs ?? []).Where(job=>job.Status=="Completed" && job.Direction=="Archive").GroupBy(job=>job.GroupId).ToDictionary(g=>g.Key,g=>g.Max(job=>job.CreatedAt));
@@ -77,6 +78,9 @@ public static class NamingGuideBuilder
         // Historical spelling/prefix/package data remains evidence, never a complete-name template.
         if(entry.Style.Length==0) entry.Style="{generation} {phase}";
         var brand=NamingText.PolicyBrand(entry.Brand);
+        var policy=NamingPolicies.For(entry.Brand,Mandatory);
+        if(policy?.Suffix=="none") entry.Style="";
+        else if(policy?.Suffix.Length>0) entry.Style=policy.Suffix;
         if(brand=="audi") entry.Style=Regex.IsMatch(entry.Family,@"^A[4-8]$")?"{code} {phase}":"{generation} {phase}";
         if(brand=="bmw") entry.PhaseWord="LCI";
         if(brand=="rolls royce")
@@ -94,8 +98,13 @@ public static class NamingGuideBuilder
                 entry.Code=revised;
             }
         }
+        else if(brand=="porsche" && entry.Family is "718" or "Cayman" or "Boxster") entry.Style="{code} {phase}";
     }
-    public static string MapBrand(string brand,WorkspaceState state) => state.BrandFolders.FirstOrDefault(pair=>pair.Key.Equals(brand,StringComparison.OrdinalIgnoreCase)).Value ?? brand;
+    public static string MapBrand(string brand,WorkspaceState state)
+    {
+        var mapped=state.BrandFolders.FirstOrDefault(pair=>pair.Key.Equals(brand,StringComparison.OrdinalIgnoreCase)).Value;
+        return mapped is not null && NamingPolicies.CanonicalBrand(mapped)==NamingPolicies.CanonicalBrand(brand)?mapped:brand;
+    }
     private static CarIdentity ReadIdentity(LearnedName name)
     {
         var p=name.IdentityKey.Split('|');
@@ -115,7 +124,11 @@ public static class NamingGuideBuilder
             var brand=System.IO.Path.GetFileName(path);
             var recognized=brand.Equals("Audi",StringComparison.OrdinalIgnoreCase) && text.Contains("Quattro",StringComparison.OrdinalIgnoreCase) && text.Contains("A4",StringComparison.OrdinalIgnoreCase)
                 || brand.Equals("BMW",StringComparison.OrdinalIgnoreCase) && text.Contains("LCI",StringComparison.OrdinalIgnoreCase)
-                || brand.Equals("Rolls-Royce",StringComparison.OrdinalIgnoreCase) && text.Contains("现代",StringComparison.Ordinal) && text.Contains("生产",StringComparison.Ordinal);
+                || brand.Equals("Rolls-Royce",StringComparison.OrdinalIgnoreCase) && text.Contains("现代",StringComparison.Ordinal) && text.Contains("生产",StringComparison.Ordinal)
+                || brand.Equals("Ferrari",StringComparison.OrdinalIgnoreCase) && text.Contains("不添加",StringComparison.Ordinal)
+                || brand.Equals("Porsche",StringComparison.OrdinalIgnoreCase) && text.Contains("718",StringComparison.Ordinal) && text.Contains("代号",StringComparison.Ordinal)
+                || brand.StartsWith("Mercedes-",StringComparison.OrdinalIgnoreCase) && text.Contains("代号",StringComparison.Ordinal);
+            if(recognized && NamingPolicies.For(brand,guide) is { } policy) policy.Sources.Add(file);
             if(!recognized) guide.Warnings.Add("补充文件已留存，未识别的自然语言要求需人工更新结构化指南："+file);
         }
     }

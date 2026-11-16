@@ -47,7 +47,7 @@ public sealed partial class MainPage
             foreach(var group in VM.Groups.Take(6)) VM.MarkTouched(group);
             await Task.Delay(250);
             App.MainWindow!.AppWindow.Hide();
-            report["EarlyHdPreviewCount"]=Directory.GetFiles(Path.Combine(ViewModels.MainViewModel.DataDirectory,"cache"),"*.jpg").Count(p=>!p.EndsWith("-thumb.jpg"));
+            report["EarlyHdPreviewCount"]=Directory.GetFiles(Path.Combine(ViewModels.MainViewModel.DataDirectory,"cache"),"*.jpg").Count(p=>!Services.PhotoService.CurrentThumbnail(p));
             Check((int)report["EarlyHdPreviewCount"]<10,"Import eagerly built too many high-resolution previews.");
             await VM.BackgroundImport;report["BackgroundThumbnails500Seconds"]=watch.Elapsed.TotalSeconds;
             Stage("Measuring eager comparison");
@@ -61,8 +61,8 @@ public sealed partial class MainPage
             Stage("Testing concurrency");
             report["ComparisonNote"]="Same 500 synthetic 12MP files; eager comparison reproduces metadata + all HD previews + thumbnails with the new decoder, not the old executable.";
             var first=VM.Groups.Take(4).ToList();VM.Merge(first);var merged=VM.Selected!;VM.Split(merged,merged.Photos.Take(2).ToList());var a=VM.Selected!;
-            a.Photos[0].Crop=new(.25,.25,.5,.5);var b=VM.Duplicate(a);
-            Check(b.Photos.All(p=>p.Crop is null) && b.FolderName=="" && b.Suggestion is null && a.Photos[0].Asset==b.Photos[0].Asset,"Duplicate group was not independent.");
+            a.Photos[0].Crop=new(.25,.25,.5,.5);var b=await VM.DuplicateAsync(a);
+            Check(b.Photos.All(p=>p.Crop is null) && b.FolderName=="" && b.Suggestion is null && a.Photos[0].AssetId!=b.Photos[0].AssetId && a.Photos[0].Path!=b.Photos[0].Path,"Duplicate group was not independent.");
             VM.SelectPhoto(a,a.Photos[1]);Check(a.RepresentativeId==a.Photos[1].Id && a.LastViewedId==a.Photos[1].Id,"Click-to-representative failed.");
             var cropBytes=await VM.Images.AnalysisJpegAsync(a.Photos[0],2048,default);
             using(var stream=new InMemoryRandomAccessStream()) {

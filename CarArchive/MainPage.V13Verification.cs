@@ -1,4 +1,4 @@
-﻿#if DEBUG
+#if DEBUG
 using System.Text.Json;
 using CarArchive.Core;
 using Microsoft.UI.Xaml;
@@ -34,7 +34,7 @@ public sealed partial class MainPage
             VM.ApplyVerification(group);Check(group.Confirmed.Variant=="Model Sport" && group.FolderName.StartsWith("Model Sport"),"Explicit adoption updates identity and locally generates folder");
             group.ManualName=true;group.FolderName="My reviewed folder";await VM.RecognizeAsync(group,true,default);VM.ApplyVerification(group);
             Check(group.FolderName=="My reviewed folder" && group.VerificationHistory.Count==1,"Adoption preserves manual name and prior verification history");
-            var other=VM.Duplicate(group);VM.Selected=other;RenderSelection();backend.Failure=true;
+            var other=await VM.DuplicateAsync(group,default);VM.Selected=other;RenderSelection();backend.Failure=true;
             await VM.RunGroupAsync(group,"深入查证",false,ct=>VM.RecognizeAsync(group,true,ct));
             Check(group.TaskState==GroupTaskState.Failed && group.Verification?.Status==VerificationStatus.Incomplete && ReferenceEquals(group.Suggestion,original),"Incomplete verification retains prior identification and marks task failed");
             Check(VM.Selected==other && other.Verification is null,"Background completion never changes another group's selection or report");

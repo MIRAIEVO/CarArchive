@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 namespace CarArchive.Core;
 
@@ -55,7 +55,9 @@ public sealed class ArchiveService(IStateStore store)
             job.Status = "Completed"; store.SaveJob(job);
             if (job.ParentJobId.Length > 0)
             {
-                var original = store.Jobs().First(j => j.Id == job.ParentJobId); original.Status = "Undone"; store.SaveJob(original);
+                var original = store.Jobs().First(j => j.Id == job.ParentJobId); original.Status = "Undone";original.UndoneAt=DateTimeOffset.UtcNow; store.SaveJob(original);
+                foreach(var directory in original.CreatedDirectories.OrderByDescending(p=>p.Length))
+                    try { if(Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory,false); } catch(IOException) { } catch(UnauthorizedAccessException) { }
             }
             return job;
         }
@@ -63,7 +65,13 @@ public sealed class ArchiveService(IStateStore store)
     }
     private async Task MoveOneAsync(ArchiveJob job, MoveEntry entry, CancellationToken ct)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(entry.Destination)!);
+        var destinationDirectory=Path.GetDirectoryName(entry.Destination)!;
+        if(job.Direction=="Archive")
+        {
+            var missing=new List<string>();for(var path=destinationDirectory;!Directory.Exists(path);path=Path.GetDirectoryName(path)!) { missing.Add(path);if(Path.GetDirectoryName(path) is null) break; }
+            foreach(var path in missing.AsEnumerable().Reverse()) { Directory.CreateDirectory(path);job.CreatedDirectories.Add(path);store.SaveJob(job); }
+        }
+        else Directory.CreateDirectory(destinationDirectory);
         if(entry.RestoreExisting && entry.Stage=="Planned")
         {
             if(!File.Exists(entry.Destination) || await HashAsync(entry.Destination,ct)!=entry.Hash || !File.Exists(entry.Source) || await HashAsync(entry.Source,ct)!=entry.Hash)

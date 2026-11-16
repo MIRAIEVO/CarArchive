@@ -84,6 +84,7 @@ public static class CategoryCatalogService
         group.FolderName = name;
         group.TargetBrand = brand;
         group.ManualName = true;
+        group.ManualTargetBrand = true;
         group.AppliedRule = "手动选择已有分类";
         group.Refresh();
     }

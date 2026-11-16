@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
@@ -40,6 +40,8 @@ public class PhotoReference : Observable
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string AssetId { get; set; } = "";
     [JsonIgnore] public ImageAsset? Asset { get; private set; }
+    public string AnalysisPath { get; set; } = "";
+    public double VideoPositionSeconds { get; set; }
     public string OriginalPath { get; set; } = "";
     public string Path { get; set; } = "";
     public DateTimeOffset? CapturedAt { get; set; }
@@ -68,7 +70,7 @@ public sealed class Photo : PhotoReference
     public Photo Snapshot() { var copy=CopyReference(false,false);copy.Id=Id;return copy; }
     public Photo CopyReference(bool clearCrop=false,bool attach=true)
     {
-        var copy=new Photo { AssetId=AssetId,OriginalPath=OriginalPath,Path=Path,CapturedAt=CapturedAt,PreviewPath=PreviewPath,ThumbnailPath=ThumbnailPath,Error=Error,Excluded=Excluded,Crop=clearCrop?null:Crop };
+        var copy=new Photo { AssetId=AssetId,AnalysisPath=AnalysisPath,VideoPositionSeconds=VideoPositionSeconds,OriginalPath=OriginalPath,Path=Path,CapturedAt=CapturedAt,PreviewPath=PreviewPath,ThumbnailPath=ThumbnailPath,Error=Error,Excluded=Excluded,Crop=clearCrop?null:Crop };
         if(attach && Asset is not null) copy.Attach(Asset); return copy;
     }
 }
@@ -130,6 +132,10 @@ public sealed class PhotoGroup : Observable
     public ObservableCollection<Photo> Photos { get; set; } = [];
     public string RepresentativeId { get; set; } = "";
     public string LastViewedId { get; set; } = "";
+    public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;
+    public bool UploadMultiple { get; set; }
+    [JsonIgnore] public List<Photo>? PendingUploadPhotos {get;set;}
+    [JsonIgnore] public HashSet<string> UploadingPhotoIds { get; set; } = [];
     public string PreviousFolderName { get; set; } = "";
     public bool UserTouched { get; set; }
     public string ImportBatchId { get; set; } = "";
@@ -139,7 +145,8 @@ public sealed class PhotoGroup : Observable
     private GroupTaskState taskState;
     public GroupTaskState TaskState { get=>taskState; set { if(Set(ref taskState,value)) Refresh(); } }
     [JsonIgnore] public bool IsWorking => TaskState is GroupTaskState.Queued or GroupTaskState.Running;
-    [JsonIgnore] public bool Editable => !IsWorking && !Archived;
+    public bool FilesPending { get; set; }
+    [JsonIgnore] public bool Editable => !IsWorking && !Archived && !FilesPending;
     [JsonIgnore] public string TaskColor => Archived?"#00000000":TaskState switch { GroupTaskState.Running=>"#DF4050",GroupTaskState.Completed=>"#23A46B",GroupTaskState.Failed or GroupTaskState.Canceled=>"#D89920",_=>"#929AA5" };
     [JsonIgnore] public double DisplayOpacity => Archived?0.52:1;
     [JsonIgnore] public double ArchivedStrikeOpacity => Archived?0.8:0;
@@ -154,6 +161,7 @@ public sealed class PhotoGroup : Observable
     public string AppliedRule { get; set; } = "";
     public string LastGeneratedName { get; set; } = "";
     public bool ManualName { get; set; }
+    public bool ManualTargetBrand { get; set; }
     public bool Archived { get; set; }
     public bool GroupConfirmed { get; set; }
     [JsonIgnore] public string Title => FolderName.Length > 0 ? FolderName : Photos.FirstOrDefault()?.Name ?? "空组";
@@ -182,6 +190,10 @@ public sealed class AppSettings
     public LearningMode Learning { get; set; } = LearningMode.ConfirmRules;
     public int BatchCallLimit { get; set; } = 100;
     public int GroupGapSeconds { get; set; } = 90;
+    public Dictionary<string,ShortcutBinding> Shortcuts { get; set; } = InteractionSettings.Defaults();
+    public HashSet<string> SkippedConfirmations { get; set; } = [];
+    public bool OptimizeRecognitionTokens { get; set; } = false;
+    public bool ExplicitUploadSelection { get; set; }
 }
 public sealed class WorkspaceState
 {
@@ -218,8 +230,10 @@ public sealed class ArchiveJob
     public string Status { get; set; } = "Pending";
     public string Direction { get; set; } = "Archive";
     public string ParentJobId { get; set; } = "";
+    public DateTimeOffset? UndoneAt {get;set;}
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
     public List<MoveEntry> Entries { get; set; } = [];
+    public List<string> CreatedDirectories {get;set;}=[];
 }
 
 public interface IStateStore

@@ -21,7 +21,7 @@ public sealed partial class MainPage
             Directory.CreateDirectory(Path.Combine(root,"Rolls-Royce","Silver Spirit (1st)"));
             Directory.CreateDirectory(Path.Combine(root,"Mercedes-AMG","A 35 Hatchback (W177)"));
             var source=Path.Combine(directory,"synthetic.jpg");await File.WriteAllBytesAsync(source,await Services.PhotoService.ConnectivityImageAsync());var hash=await ArchiveService.HashAsync(source);
-            await VM.ImportAsync([source],true,default);await VM.BackgroundImport;var group=VM.Groups[0];var other=VM.Duplicate(group);other.FolderName="Other group unchanged";
+            await VM.ImportAsync([source],true,default);await VM.BackgroundImport;var group=VM.Groups[0];var other=await VM.DuplicateAsync(group,default);other.FolderName="Other group unchanged";
             VM.State.Settings.ArchiveRoot=root;
             group.Confirmed=new() { Brand="BMW",Series="6 Series",Variant="6 Series Coupe",Body="Coupe",Generation="3rd Generation",Code="F13",Phase="Facelift" };
             VM.State.Names.Add(new(group.Confirmed.NamingKey,"BMW","6 Series Coupe Coupe (F13 Facelift)"));

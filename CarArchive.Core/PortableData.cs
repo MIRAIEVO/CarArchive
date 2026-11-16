@@ -87,13 +87,15 @@ public static class PortableData
             using(var input=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=System.IO.Path.Combine(source,"cararchive.db"),Mode=SqliteOpenMode.ReadOnly }.ToString()))
             using(var output=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=targetDb }.ToString()))
             { input.Open();output.Open();input.BackupDatabase(output);using var check=output.CreateCommand();check.CommandText="PRAGMA integrity_check";if((string?)check.ExecuteScalar()!="ok") throw new InvalidDataException("数据库完整性检查失败。"); }
-            foreach(var name in new[]{"cache","naming","crashes"})
+            foreach(var name in new[]{"cache","naming","crashes","managedphotos"})
             {
-                var directory=System.IO.Path.Combine(source,name);if(!Directory.Exists(directory) || File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint)) continue;
+                var directory=System.IO.Path.Combine(source,name);if(!Directory.Exists(directory)) continue;
+                if(name=="managedphotos") ValidateManagedTree(directory);
+                if(File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint)) continue;
                 foreach(var file in Directory.EnumerateFiles(directory,"*",new EnumerationOptions { RecurseSubdirectories=true,AttributesToSkip=FileAttributes.ReparsePoint,IgnoreInaccessible=false }))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if(File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint) || System.IO.Path.GetFileName(file).Contains("backup",StringComparison.OrdinalIgnoreCase)) continue;
+                    if(File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint) || name!="managedphotos" && System.IO.Path.GetFileName(file).Contains("backup",StringComparison.OrdinalIgnoreCase)) continue;
                     var relative=System.IO.Path.GetRelativePath(source,file);var target=System.IO.Path.Combine(temporary,relative);Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);File.Copy(file,target);
                     using var inputFile=File.OpenRead(file);using var outputFile=File.OpenRead(target);
                     if(!SHA256.HashData(inputFile).SequenceEqual(SHA256.HashData(outputFile))) throw new IOException("迁移文件校验失败："+relative);
@@ -116,6 +118,22 @@ public static class PortableData
         }
         finally { if(Directory.Exists(temporary)) Directory.Delete(temporary,true); }
     }
+    private static void ValidateManagedTree(string root)
+    {
+        // These files are independent photo originals, not disposable cache. Never silently skip a link.
+        var pending=new Stack<string>();pending.Push(root);
+        while(pending.Count>0)
+        {
+            var directory=pending.Pop();
+            if(File.GetAttributes(directory).HasFlag(FileAttributes.ReparsePoint)) throw new IOException("独立照片目录不能通过符号链接或联接迁移。");
+            foreach(var path in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var attributes=File.GetAttributes(path);
+                if(attributes.HasFlag(FileAttributes.ReparsePoint)) throw new IOException("独立照片包含链接，请先恢复为普通文件后迁移。");
+                if(attributes.HasFlag(FileAttributes.Directory)) pending.Push(path);
+            }
+        }
+    }
     private static void RejectReparseDirectories(string directory)
     {
         for(var current=new DirectoryInfo(directory);current is not null;current=current.Parent)
@@ -133,7 +151,7 @@ public static class PortableData
     private static void RebaseDatabase(string database,string source,string destination,string id)
     {
         using var db=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=database }.ToString());db.Open();using var transaction=db.BeginTransaction();
-        foreach(var table in new[]{"workspace","groups_v2","assets_v2"})
+        foreach(var table in new[]{"workspace","groups_v2","assets_v2","jobs","photo_operations"})
         {
             using var exists=db.CreateCommand();exists.Transaction=transaction;exists.CommandText="SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$table";exists.Parameters.AddWithValue("$table",table);if(Convert.ToInt32(exists.ExecuteScalar())==0) continue;
             using var read=db.CreateCommand();read.Transaction=transaction;read.CommandText=$"SELECT id,json FROM {table}";
@@ -151,7 +169,10 @@ public static class PortableData
     {
         if(node is JsonObject obj) foreach(var item in obj.ToList())
         {
-            if(item.Key is "PreviewPath" or "ThumbnailPath" && item.Value is JsonValue v && v.TryGetValue<string>(out var path) && path.StartsWith(source+System.IO.Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)) obj[item.Key]=System.IO.Path.Combine(destination,System.IO.Path.GetRelativePath(source,path));
+            if(item.Value is JsonValue v && v.TryGetValue<string>(out var path) && path.StartsWith(source+System.IO.Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)
+                && (item.Key is "PreviewPath" or "ThumbnailPath" || item.Key is "Path" or "OriginalPath" or "Source" or "Destination" or "Temporary" or "Temp"
+                    && path.StartsWith(System.IO.Path.Combine(source,"managedphotos")+System.IO.Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)))
+                obj[item.Key]=System.IO.Path.Combine(destination,System.IO.Path.GetRelativePath(source,path));
             else if(item.Value is not null) Rebase(item.Value,source,destination);
         }
         else if(node is JsonArray array) foreach(var item in array) if(item is not null) Rebase(item,source,destination);

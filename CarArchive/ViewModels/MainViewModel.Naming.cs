@@ -16,7 +16,13 @@ public sealed partial class MainViewModel
     public Task EnsureNamingGuideAsync(bool force=false,bool backup=false)
     {
         var root=State.Settings.ArchiveRoot;
-        if(root.Length==0) { Naming.Guide=null;return Task.CompletedTask; }
+        if(root.Length==0 || !Directory.Exists(root))
+        {
+            if(!force && namingRoot.Equals(root,StringComparison.OrdinalIgnoreCase) && ReferenceEquals(Naming.Guide,BuiltInNamingGuide.Load()) && namingLoad is not null) return namingLoad;
+            namingRoot=root;Naming.Guide=BuiltInNamingGuide.Load();
+            var builtInDirectory=NamingGuideStore.DirectoryFor(DataDirectory,root);
+            return namingLoad=Task.Run(()=>NamingGuideStore.Save(builtInDirectory,Naming.Guide,new WorkspaceState()),shutdown.Token);
+        }
         if(!force && namingLoad is not null && namingRoot.Equals(root,StringComparison.OrdinalIgnoreCase)) return namingLoad;
         var preceding=namingLoad;
         namingRoot=root;var version=++namingLoadVersion;
@@ -46,7 +52,7 @@ public sealed partial class MainViewModel
                     var built=NamingGuideBuilder.Build(root,snapshot,Store.Jobs(),shutdown.Token);
                     NamingGuideStore.Save(directory,built,snapshot);return built;
                 },shutdown.Token);
-                if(version==namingLoadVersion && State.Settings.ArchiveRoot.Equals(root,StringComparison.OrdinalIgnoreCase)) Naming.Guide=guide;
+                if(version==namingLoadVersion && State.Settings.ArchiveRoot.Equals(root,StringComparison.OrdinalIgnoreCase)) Naming.Guide=BuiltInNamingGuide.Compose(guide);
             }
             catch { if(version==namingLoadVersion) namingLoad=null;throw; }
         }

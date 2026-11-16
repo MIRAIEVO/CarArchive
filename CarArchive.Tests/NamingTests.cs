@@ -89,7 +89,7 @@ static class NamingTests
             state.Rules.Add(new() { Brand="Mercedes-Benz",From="AWD",To="4MATIC" });
             state.Rules.Add(new() { Brand="BMW",From="AWD",To="xDrive" });
             state.Rules.Add(new() { Brand="Audi",From="AWD",To="quattro" });
-            Check(NamingGuideEngine.Generate(new() { Brand="Mercedes-Benz",Series="E-Class",Variant="E 300 AWD",Generation="6th" },state).Name=="E 300 (6th)");
+            Check(NamingGuideEngine.Generate(new() { Brand="Mercedes-Benz",Series="E-Class",Variant="E 300 AWD",Generation="6th" },state).Name=="E-Class E300");
             Check(NamingGuideEngine.Generate(new() { Brand="BMW",Series="3 Series",Variant="330i xDrive",Generation="7th" },state).Name=="330i (7th)");
             var audi=NamingGuideEngine.Generate(new() { Brand="Audi",Series="A6",Variant="A6 AWD",Code="C8",Generation="8th" },state);
             Check(audi.Name=="A6 (C8)",audi.Name);
@@ -140,7 +140,7 @@ static class NamingTests
             var state=new WorkspaceState();state.BrandFolders["Mercedes-Benz"]="Mercedes";
             var guide=Build(Area(),state,("Mercedes","Benz S500 4MATIC (W223)",new() { Brand="Mercedes-Benz",Series="S-Class",Variant="S 500 4MATIC",Code="W223",Generation="7th" }));
             var result=NamingGuideEngine.Generate(new() { Brand="Mercedes-Benz",Series="S-Class",Variant="S 500 4MATIC",Code="w223",Generation="7th",Body="Sedan" },state,guide);
-            Check(result.Name=="S 500 (W223)",result.Name);
+            Check(result.Name=="S-Class S500 (W223)",result.Name);
             Check(!NamingGuideEngine.Generate(new() { Brand="Mercedes-Benz",Series="S-Class",Variant="S 500 4MATIC Coupe",Code="W223",Generation="7th" },state,guide).Name.Contains("Coupe Coupe"));
             Check(NamingText.RemoveRepeatedBodyTerms("Evoque Convertible HSE Dynamic Convertible Black Pack")=="Evoque Convertible HSE Dynamic Black Pack");return Task.CompletedTask;
         });
@@ -169,9 +169,9 @@ static class NamingTests
         });
         test("Naming V2: drivetrain markers are removed in compact and prefixed forms without losing editions",()=> {
             foreach(var (brand,variant,expected) in new[] {
-                ("Mercedes-Benz","Mercedes-Benz S 5804MATIC+ Final Edition","S 580 Final Edition (7th)"),
-                ("Mercedes-AMG","Mercedes-AMG C 63 S E PERFORMANCE 4MATIC+","C 63 S E PERFORMANCE (7th)"),
-                ("Mercedes-Maybach","Mercedes-Maybach S 680 4MATIC Haute Voiture","S 680 Haute Voiture (7th)"),
+                ("Mercedes-Benz","Mercedes-Benz S 5804MATIC+ Final Edition","S-Class S580 Final Edition"),
+                ("Mercedes-AMG","Mercedes-AMG C 63 S E PERFORMANCE 4MATIC+","C 63 S E PERFORMANCE"),
+                ("Mercedes-Maybach","Mercedes-Maybach S 680 4MATIC Haute Voiture","S-Class S680 Haute Voiture"),
                 ("BMW","BMW 330ixDrive Sedan M Sport","330i Sedan M Sport (7th)"),
                 ("BMW","BMW X5 xDrive40i M Sport","X5 40i M Sport (7th)"),
                 ("Audi","Audi A3 Sportback quattro Black Edition","A3 Sportback Black Edition (7th)") })

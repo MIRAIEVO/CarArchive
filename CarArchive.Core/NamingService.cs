@@ -4,15 +4,17 @@ namespace CarArchive.Core;
 
 public sealed class NamingService
 {
-    public NamingGuide? Guide { get; set; }
+    public static bool SameBrand(string a,string b)=>NamingPolicies.CanonicalBrand(a)==NamingPolicies.CanonicalBrand(b);
+    public NamingGuide? Guide { get; set; } = BuiltInNamingGuide.Load();
     public static string DefaultName(CarIdentity car)
     {
         return NamingGuideEngine.Generate(car,new()).Name;
     }
     public string ResolveBrand(string brand,WorkspaceState state)=>Guide?.Index.ResolveBrand(brand,state) ?? NamingGuideBuilder.MapBrand(brand,state);
+    public string ResolveBrand(CarIdentity identity,WorkspaceState state)=>BuiltInNamingGuide.ResolveBrand(identity,state,Guide);
     public (string Name, string Reason) Suggest(CarIdentity identity, WorkspaceState state, IEnumerable<string> existing)
     {
-        var guide=Guide is not null && (Guide.SourceRoot.Length==0 || Guide.SourceRoot.Equals(state.Settings.ArchiveRoot,StringComparison.OrdinalIgnoreCase))?Guide:null;
+        var guide=Guide is not null && (Guide.SourceRoot.Length==0 || Guide.SourceRoot.Equals(state.Settings.ArchiveRoot,StringComparison.OrdinalIgnoreCase))?Guide:BuiltInNamingGuide.Load();
         var decision=NamingGuideEngine.Generate(identity,state,guide);var name=decision.Name;
         var match = existing.FirstOrDefault(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase));
         return (match ?? name, decision.Reason+(match is not null?"；匹配规范名称的已有目录":""));

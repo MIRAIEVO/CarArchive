@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.Json;
 using CarArchive.Core;
 using CarArchive.Services;
@@ -29,9 +29,10 @@ public sealed partial class MainViewModel : Observable
     public event Action<Photo>? PhotoUpdated;
     public event Action? StructureUpdated;
     private PhotoGroup? selected;
+    private long selectionRevision;
     private bool busy;
     private string status="拖入照片开始整理。点击照片即设为代表图；不再需要确认分组。";
-    public PhotoGroup? Selected { get=>selected; set { if(!ReferenceEquals(selected,value)) { if(selected is not null) selected.IsCurrent=false;if(Set(ref selected,value)) { if(value is not null) value.IsCurrent=true;CrashJournal.Trace("Group.Select",value?.Id);SelectionChanged(); } } } }
+    public PhotoGroup? Selected { get=>selected; set { if(!ReferenceEquals(selected,value)) { selectionRevision++;if(selected is not null) selected.IsCurrent=false;if(Set(ref selected,value)) { if(value is not null) value.IsCurrent=true;CrashJournal.Trace("Group.Select",value?.Id);SelectionChanged(); } } } }
     public bool SelectedCanDeleteGroups => !Busy && Selected is not null && !Selected.IsWorking;
     public bool CanDeleteAllArchivedGroups => !Busy && Groups.Any(g=>g.Archived) && Groups.Where(g=>g.Archived).All(g=>!g.IsWorking);
     public bool Busy { get=>busy;set { if(Set(ref busy,value)) { Notify(nameof(Idle));Notify(nameof(SelectedCanDeleteGroups));Notify(nameof(CanDeleteAllArchivedGroups)); } } }
@@ -79,9 +80,11 @@ public sealed partial class MainViewModel : Observable
         if(Store.Jobs().Any(j=>targetIds.Contains(j.GroupId) && j.Status is "Pending" or "Interrupted"))
             throw new InvalidOperationException("所选分组中有未完成的文件操作，请先从操作记录中恢复或撤销。");
 
+        if(Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (targetIds.Contains(o.GroupId)||targetIds.Contains(o.SourceGroupId)))) throw new InvalidOperationException("所选分组有未完成的照片文件操作，请先恢复或取消副本任务。");
         var firstIndex=targets.Min(Groups.IndexOf);
         var selectedWillBeRemoved=Selected is not null && targetIds.Contains(Selected.Id);
         foreach(var group in targets) Groups.Remove(group);
+        PurgeArchivedHistory(targets);
         if(selectedWillBeRemoved)
             Selected=Groups.Skip(Math.Min(firstIndex,Groups.Count)).FirstOrDefault(g=>!g.Archived)
                 ?? Groups.FirstOrDefault(g=>!g.Archived)
@@ -136,8 +139,8 @@ public sealed partial class MainViewModel : Observable
                 while(work.Count>0)
                 {
                     ct.ThrowIfCancellationRequested(); var photo=work.Dequeue();
-                    await Images.ReadMetadataAsync(photo,ct);
                     await Images.EnsureThumbnailAsync(photo,ct);
+                    await Images.ReadMetadataAsync(photo,ct);
                     if(photo.Asset is not null) SaveAsset(photo.Asset);
                     foreach(var group in Groups.Where(g=>g.Photos.Any(p=>p.AssetId==photo.AssetId)))
                     {
@@ -173,17 +176,19 @@ public sealed partial class MainViewModel : Observable
     }
     public async Task RunGroupAsync(PhotoGroup group,string kind,bool fileOperation,Func<CancellationToken,Task> action)
     {
+        if(kind=="联网识别") {group.PendingUploadPhotos=UploadSelection.Select(group);group.UploadingPhotoIds=group.PendingUploadPhotos.Select(p=>p.Id).ToHashSet();}
         MarkTouched(group);
         CrashJournal.Trace("Task.Start."+kind,group.Id);
         try { await Tasks.RunAsync(group,kind,fileOperation,action,()=> { SaveGroup(group);GroupUpdated?.Invoke(group); },shutdown.Token); }
-        finally { CrashJournal.Trace("Task.End."+group.TaskState,group.Id); }
+        finally { group.PendingUploadPhotos=null;group.UploadingPhotoIds.Clear();CrashJournal.Trace("Task.End."+group.TaskState,group.Id); }
     }
     public AppSettings CaptureSettings()=>JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(State.Settings,StateStore.Json),StateStore.Json)!;
     public async Task RecognizeAsync(PhotoGroup group,bool deep,CancellationToken ct,AppSettings? capturedSettings=null)
     {
         if(group.Archived) throw new InvalidOperationException("已归档组请先撤销。");
         var settings=capturedSettings ?? CaptureSettings();
-        var photos=group.Photos.Where(p=>!p.Excluded).OrderByDescending(p=>p.Id==group.RepresentativeId).Select(p=>p.Snapshot()).ToList();
+        settings.Mode=group.Mode;settings.ExplicitUploadSelection=true;
+        var photos=group.PendingUploadPhotos??UploadSelection.Select(group);group.UploadingPhotoIds=photos.Select(p=>p.Id).ToHashSet();
         if(deep)
         {
             if(group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先联网识别或填写待查证车型。");
@@ -196,6 +201,7 @@ public sealed partial class MainViewModel : Observable
         var result=await Recognition.RecognizeAsync(photos,settings,false,ct);
         ct.ThrowIfCancellationRequested();await PrepareNamingGuideAsync();ct.ThrowIfCancellationRequested();
         group.Suggestion=result;group.Confirmed=result.Identity.Clone();
+        if(!group.ManualTargetBrand) group.TargetBrand=Naming.ResolveBrand(group.Confirmed,State);
         if(result.Verification is not null) StoreVerification(group,result.Verification);
         else group.Verification=null;
         if(!group.ManualName) { group.PreviousFolderName=group.FolderName; GenerateName(group); }
@@ -215,25 +221,28 @@ public sealed partial class MainViewModel : Observable
             throw new InvalidOperationException("没有可以采用的完整修正建议。");
         if(group.Confirmed.NamingKey!=report.Candidate.NamingKey) throw new InvalidOperationException("分类字段已改变，请重新查证后采用建议。");
         group.Confirmed=identity.Clone();
+        if(!group.ManualTargetBrand) group.TargetBrand=Naming.ResolveBrand(group.Confirmed,State);
         if(!group.ManualName) { group.PreviousFolderName=group.FolderName;GenerateName(group); }
         else group.AppliedRule="已采用查证修正；保留手动名称，可重新生成";
         MarkTouched(group);group.State="已采用查证建议 · 待人工复核";SaveGroup(group);
     }
     public void GenerateName(PhotoGroup group)
     {
-        var brand=group.Confirmed.Brand.Length>0?Naming.ResolveBrand(group.Confirmed.Brand,State):group.TargetBrand;
+        var brand=group.Confirmed.Brand.Length>0?Naming.ResolveBrand(group.Confirmed,State):group.TargetBrand;
         var suggestion=Naming.Suggest(group.Confirmed,State,Naming.Guide?.Inventory.Where(entry=>entry.Brand.Equals(brand,StringComparison.OrdinalIgnoreCase)).Select(entry=>entry.Folder) ?? []);
-        group.FolderName=suggestion.Name;group.LastGeneratedName=suggestion.Name;group.TargetBrand=brand;group.AppliedRule=suggestion.Reason;group.ManualName=false;group.Refresh();
+        group.FolderName=suggestion.Name;group.LastGeneratedName=suggestion.Name;group.TargetBrand=group.ManualTargetBrand?group.TargetBrand:brand;group.AppliedRule=suggestion.Reason;group.ManualName=false;group.Refresh();
     }
     private void RequireEditable(PhotoGroup group)
     {
         if(!group.Editable) throw new InvalidOperationException("该组正在执行任务或已归档，请稍后操作。");
+        if(Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (o.GroupId==group.Id || o.SourceGroupId==group.Id))) throw new InvalidOperationException("本组有中断的照片操作，请先恢复或放弃副本准备。");
         if(Store.Jobs().Any(j=>j.GroupId==group.Id && j.Status is "Pending" or "Interrupted")) throw new InvalidOperationException("该组有中断的文件操作，请先恢复或撤销后再拆分、合并或复制。");
     }
     public void Split(PhotoGroup group,IReadOnlyList<Photo> chosen)
     {
         CrashJournal.Trace("Photos.Split",group.Id,chosen.Count);
-        RequireEditable(group);if(chosen.Count==0 || chosen.Count==group.Photos.Count) throw new InvalidOperationException("请选中需要拆出的部分照片。");
+        if(chosen.Any(p=>!group.Photos.Contains(p))) throw new InvalidOperationException("所选照片不属于当前组。");
+        if(group.IsWorking && group.TaskKind=="联网识别") { if(chosen.Any(p=>group.UploadingPhotoIds.Contains(p.Id))) throw new InvalidOperationException("不能拆分正在上传的照片。"); } else RequireEditable(group);if(chosen.Count==0 || chosen.Count==group.Photos.Count) throw new InvalidOperationException("请选中需要拆出的部分照片。");
         var newGroup=new PhotoGroup { Photos=new(chosen),UserTouched=true,State="待识别" };
         foreach(var p in chosen) group.Photos.Remove(p);
         group.UserTouched=true;group.Revision++;group.Suggestion=null;if(group.Verification is not null) group.VerificationHistory.Add(group.Verification);group.Verification=null;group.State="分组已改变";
@@ -244,21 +253,12 @@ public sealed partial class MainViewModel : Observable
         CrashJournal.Trace("Groups.Merge",Selected?.Id,groups.Count);
         if(groups.Count<2) throw new InvalidOperationException("请多选至少两个分组。");
         foreach(var g in groups) RequireEditable(g);
-        var merged=new PhotoGroup { Photos=new(GroupingService.Sort(groups.SelectMany(g=>g.Photos))),UserTouched=true,State="待识别" };
-        var index=Groups.IndexOf(groups[0]);foreach(var g in groups) Groups.Remove(g);
+        var ordered=groups.OrderBy(g=>Groups.IndexOf(g)).ToList();
+        var merged=ordered[0];var index=Groups.IndexOf(merged);
+        merged.Photos=new(GroupingService.Sort(ordered.SelectMany(g=>g.Photos)));
+        merged.UserTouched=true;merged.Revision++;
+        foreach(var g in ordered) Groups.Remove(g);
         Groups.Insert(Math.Min(index,Groups.Count),merged);Selected=merged;Save();StructureUpdated?.Invoke();
-    }
-    public PhotoGroup Duplicate(PhotoGroup group)
-    {
-        RequireEditable(group);
-        MarkTouched(group);
-        var copy=GroupPhotoEditor.Copy(group,group.Photos.ToList());
-        Groups.Insert(Groups.IndexOf(group)+1,copy);Selected=copy;Save();StructureUpdated?.Invoke();return copy;
-    }
-    public PhotoGroup DuplicatePhotos(PhotoGroup group,IReadOnlyList<Photo> selected)
-    {
-        RequireEditable(group);var copy=GroupPhotoEditor.Copy(group,selected);MarkTouched(group);
-        Groups.Insert(Groups.IndexOf(group)+1,copy);Selected=copy;Save();StructureUpdated?.Invoke();return copy;
     }
     public void RemovePhotos(PhotoGroup group,IReadOnlyList<Photo> selected)
     {
@@ -274,14 +274,15 @@ public sealed partial class MainViewModel : Observable
     {
         if(State.Settings.Learning==LearningMode.Manual && !explicitly) return [];
         Naming.Remember(group.Confirmed,group.FolderName,State);
-        if(group.Confirmed.Brand.Length>0 && group.TargetBrand.Length>0) State.BrandFolders[group.Confirmed.Brand]=NamingService.SafeSegment(group.TargetBrand);
+        if(group.Confirmed.Brand.Length>0 && group.TargetBrand.Length>0 && NamingService.SameBrand(group.Confirmed.Brand,group.TargetBrand)) State.BrandFolders[group.Confirmed.Brand]=NamingService.SafeSegment(group.TargetBrand);
         var pending=LocalNamingLearning.RecordConfirmed(group,State,explicitly);SaveHeader();return pending;
     }
-    public async Task ArchiveAsync(PhotoGroup group,CancellationToken ct,string? capturedRoot=null)
+    public async Task ArchiveAsync(PhotoGroup group,CancellationToken ct,string? capturedRoot=null,string? capturedBrand=null,string? capturedFolder=null)
     {
         if(group.Archived) throw new InvalidOperationException("本组已经归档。");
+        if(group.FilesPending || Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (o.GroupId==group.Id || o.SourceGroupId==group.Id))) throw new InvalidOperationException("本组照片操作尚未完成，请先恢复后再归档。");
         if(Store.Jobs().Any(j=>j.GroupId==group.Id && j.Status is "Pending" or "Interrupted")) throw new InvalidOperationException("本组有中断操作，请从操作记录恢复。");
-        var root=capturedRoot ?? State.Settings.ArchiveRoot;var brand=group.TargetBrand;var folder=group.FolderName;
+        var selectedRevision=selectionRevision;var root=capturedRoot ?? State.Settings.ArchiveRoot;var brand=capturedBrand??group.TargetBrand;var folder=capturedFolder??group.FolderName;
         // Freeze the source/reference set before leaving the UI thread.
         var snapshot=new PhotoGroup { Id=group.Id,Photos=new(group.Photos.Select(p=>p.Snapshot())) };
         var references=new WorkspaceState { Groups=Groups.Select(g=>new PhotoGroup { Id=g.Id,Archived=g.Archived,Photos=new(g.Photos.Select(p=>new Photo { AssetId=p.AssetId,Excluded=p.Excluded })) }).ToList() };
@@ -292,7 +293,7 @@ public sealed partial class MainViewModel : Observable
             var jobs=await Task.Run(Store.Jobs);
             ArchiveService.Reconcile(new WorkspaceState { Groups=[group] },jobs);SaveGroup(group);
         }
-        if(Selected==group)
+        if(Selected==group && selectionRevision==selectedRevision)
         {
             var i=Groups.IndexOf(group);Selected=Groups.Skip(i+1).FirstOrDefault(g=>!g.Archived) ?? Groups.FirstOrDefault(g=>!g.Archived) ?? group;
             StructureUpdated?.Invoke();

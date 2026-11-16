@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using CarArchive.Core;
 using CarArchive.Services;
 using Microsoft.UI.Xaml;
@@ -32,16 +32,19 @@ public sealed partial class MainPage
             var checkStatus=Paragraph("检查会提交两张合成测试图并实际联网，可能计费用量。不会发送你的照片。\n只保存 Key 不会调用 API。识别时派生图片去除 EXIF，原图保持不变。");
             var links=new StackPanel { Spacing=6 };
             var panel=new StackPanel { Spacing=12,MinWidth=410,MaxWidth=560 };
-            var advanced=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{checkImage,check,checkStatus,links}) advanced.Children.Add(element);
+            var tokenPolicy=new ToggleSwitch { Header="识别提示策略",OffContent="兼容提示",OnContent="优化提示",IsOn=VM.State.Settings.OptimizeRecognitionTokens };
+            var advanced=new StackPanel { Spacing=8 };advanced.Children.Add(tokenPolicy);advanced.Children.Add(Paragraph("优化提示保留原有图片、视角和思考预算；可随时切回兼容提示。"));foreach(var element in new FrameworkElement[]{checkImage,check,checkStatus,links}) advanced.Children.Add(element);
             var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{key,model,search,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。深入查证默认两次，必要时最多三次。"),reset,new Expander { Header="高级 · 能力检查（会实际调用 API）",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
             var openLearning=new Button { Content="管理学习模式与规则" };var openGuide=new Button { Content="查看／更新车型指南" };
             var naming=new StackPanel { Spacing=8 };naming.Children.Add(Paragraph("全部在本机学习，不发送历史名称、规则或目录清单至 API。"));naming.Children.Add(openLearning);naming.Children.Add(openGuide);
             var openData=new Button { Content="打开本版本数据目录" };var importData=new Button { Content="导入旧版本数据…" };var clearCache=new Button { Content="清理可重建缓存" };var logs=new Button { Content="打开崩溃日志" };
+            var openTrash=new Button { Content="打开回收站" };openTrash.Click+=OpenRecycleBin_Click;
             var maintenanceStatus=Paragraph("");
-            var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,maintenanceStatus}) maintenance.Children.Add(element);
+            var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,openTrash,maintenanceStatus}) maintenance.Children.Add(element);
             panel.Children.Add(new Expander { Header="识别与费用",Content=recognition,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
             panel.Children.Add(new Expander { Header="命名学习",Content=naming,HorizontalAlignment=HorizontalAlignment.Stretch });
             panel.Children.Add(new Expander { Header="数据与维护",Content=maintenance,HorizontalAlignment=HorizontalAlignment.Stretch });
+            panel.Children.Add(new Expander { Header="快捷键与确认",Content=BuildInteractionSettingsPanel(),HorizontalAlignment=HorizontalAlignment.Stretch });
             var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",Content=new ScrollViewer { Content=panel,MaxHeight=620 },PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
             Action? afterClose=null;
             openLearning.Click+=(_,_)=> { afterClose=()=>Rules_Click(sender,e);dialog.Hide(); };
@@ -56,7 +59,7 @@ public sealed partial class MainPage
                 if(string.IsNullOrWhiteSpace(model.Text)) throw new ArgumentException("请填写模型 ID。");
                 if(double.IsNaN(budget.Value)) throw new ArgumentException("请填写有效的调用上限。");
                 VM.Credentials.Save(key.Password); VM.State.Settings.Model=model.Text.Trim();
-                VM.State.Settings.BatchCallLimit=(int)budget.Value;
+                VM.State.Settings.BatchCallLimit=(int)budget.Value;VM.State.Settings.OptimizeRecognitionTokens=tokenPolicy.IsOn;
                 VM.State.Settings.Search=(SearchPreference)Math.Clamp(search.SelectedIndex,0,2);VM.SaveHeader();
             }
             check.Click+=async (_,_)=>
@@ -106,7 +109,8 @@ public sealed partial class MainPage
             var details=Paragraph("选择记录可查看每一张照片的源位置、目标位置、阶段和错误。中断任务不会在启动时自动执行。");
             list.SelectionChanged+=(_,_)=> { if(list.SelectedIndex>=0) { var j=jobs[list.SelectedIndex]; details.Text=string.Join("\n\n",j.Entries.Select(x=>$"{x.Stage}\n{x.Source}\n→ {x.Destination}"+(x.Error.Length>0?"\n错误："+x.Error:""))); } };
             var panel=new StackPanel { Spacing=12 }; panel.Children.Add(list); panel.Children.Add(new ScrollViewer { Content=details,MaxHeight=260 });
-            var result=await DialogAsync("文件操作记录",panel,"恢复中断任务","撤销选中归档");
+            panel.Children.Add(new Expander { Header="独立副本与回收记录",Content=BuildPhotoOperationHistoryPanel(),HorizontalAlignment=HorizontalAlignment.Stretch });
+            var result=await DialogAsync("文件操作记录",new ScrollViewer { Content=panel,MaxHeight=590 },"恢复中断任务","撤销选中归档");
             if(list.SelectedIndex>=0 && result!=ContentDialogResult.None)
             {
                 var job=jobs[list.SelectedIndex];

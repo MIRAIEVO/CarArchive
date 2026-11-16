@@ -6,7 +6,7 @@ namespace CarArchive.Core;
 
 public sealed class NamingGuide
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
     public int Version { get; set; } = CurrentVersion;
     private NamingGuideIndex? index;
     // A guide is a snapshot: rebuild/replace it when its sources change.
@@ -18,6 +18,15 @@ public sealed class NamingGuide
     public List<NamingProfile> Profiles { get; set; } = [];
     public List<NamingNote> Notes { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
+    public List<NamingBrandPolicy> BrandPolicies { get; set; } = [];
+}
+public sealed class NamingBrandPolicy
+{
+    public string Brand { get; set; } = "";
+    public string Suffix { get; set; } = "";
+    public string ModelConvention { get; set; } = "";
+    public string Description { get; set; } = "";
+    public List<string> Sources { get; set; } = [];
 }
 public sealed record NamingNote(string Path, string Text, string Hash);
 public sealed class NamingGuideEntry
@@ -155,7 +164,7 @@ public static partial class NamingText
     public static string PolicyBrand(string brand)
     {
         var key=Key(brand);
-        return key is "mercedes" or "mercedes benz" or "mercedes amg" or "mercedes maybach" or "benz" or "maybach" ? "mercedes" : key;
+        return key is "mercedes" or "mercedes benz" or "mercedes amg" or "mercedes maybach" or "benz" or "maybach" or "amg" ? "mercedes" : key;
     }
     public static string WithoutDrivetrain(string model,string brand)
     {
@@ -214,7 +223,7 @@ public static partial class NamingText
     {
         var families=new Dictionary<string,string[]> {
             ["mercedes"]=["G-Class","A-Class","C-Class","E-Class","S-Class","CLA-Class","CLS","CLK-Class","CL-Class","GLC","GLA","GLS","EQS SUV","EQS","EQE","SLK-Class","SLC-Class","SL-Class","V-Class","Sprinter","AMG GT","AMG SLS"],
-            ["porsche"]=["911","718","Cayenne","Macan","Panamera","Taycan"],
+            ["porsche"]=["911","718","Cayman","Boxster","Cayenne","Macan","Panamera","Taycan"],
             ["rolls royce"]=["Phantom","Ghost","Cullinan","Silver Spirit","Spectre","Wraith","Dawn"],
             ["land rover"]=["Range Rover Evoque","Range Rover Sport","Range Rover","Defender"],
             ["lexus"]=["ES","HS","IS","LC","LFA","LM","LS","LX","RX","RZ","UX"],

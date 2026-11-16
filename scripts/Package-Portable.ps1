@@ -1,4 +1,4 @@
-param([string]$Version='1.1.4',[switch]$NoRestore)
+﻿param([string]$Version='1.2',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -33,11 +33,22 @@ try { & $csc @cscArguments; $compilerExit=$LASTEXITCODE } finally { Remove-Item 
 if($compilerExit -ne 0){throw 'Portable launcher compilation failed'}
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'CarArchive\README.md') -Destination (Join-Path $docs 'README.md')
 foreach($document in @('CHANGELOG.md','AUTHORS.md')) { Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination (Join-Path $docs $document) }
+$versionNotes=Join-Path $repositoryRoot ('docs\releases\release-notes-v'+$Version+'.md')
+if(Test-Path -LiteralPath $versionNotes) { Copy-Item -LiteralPath $versionNotes -Destination (Join-Path $docs 'Release-Notes.md') }
+$namingDocs=Join-Path $docs 'Naming'
+New-Item -ItemType Directory -Path $namingDocs -Force | Out-Null
+foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充要求.md')) {
+    $sourceDocument=Join-Path $repositoryRoot ('CarArchive.Core\Resources\'+$name)
+    if(!(Test-Path -LiteralPath $sourceDocument)){throw ('Missing bundled naming document: '+$name)}
+    Copy-Item -LiteralPath $sourceDocument -Destination (Join-Path $namingDocs $name)
+}
+
 @'
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.1.4: left-aligned category and brand suggestions with horizontal transitions, and consistent import command typography.
+Release 1.2: per-group upload selection, photo/video indexing, independent edit undo/redo, manual verification clipboard, bundled naming guidance.
+Brand, series and model naming guidance is bundled for offline use; existing archive folders are not renamed.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8
 @'
@@ -46,6 +57,13 @@ Close the application before backing up Data. Import previous data using the fir
 Crash reports: Data\crashes. Clean exits discard recent-action checkpoints.
 API credentials are DPAPI-protected for the current Windows user.
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Data-and-Backup.txt') -Encoding utf8
+# Refuse to publish a package carrying workspace data or credentials.
+if(@(Get-ChildItem -LiteralPath $data -Force).Count -ne 0){throw 'The package Data directory must be empty.'}
+$forbidden=Get-ChildItem -LiteralPath $releaseRoot -File -Recurse | Where-Object {
+    $_.Name -eq 'gemini-key.bin' -or $_.Name -match '[.]db(?:-shm|-wal)?$'
+}
+if($forbidden){throw 'Unexpected workspace database or credential in release output.'}
+if(@(Get-ChildItem -LiteralPath $releaseRoot -File).Count -ne 1 -or !(Test-Path -LiteralPath $launcher)){throw 'The package root must contain only the launcher EXE.'}
 $zip=Join-Path $repositoryRoot ('artifacts\CarArchive-'+$Version+'-windows-x64.zip')
 Compress-Archive -Path (Join-Path $releaseRoot '*') -DestinationPath $zip -CompressionLevel Optimal -Force
 Add-Type -AssemblyName System.IO.Compression.FileSystem

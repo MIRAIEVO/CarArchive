@@ -1,4 +1,4 @@
-using CarArchive.Core;
+﻿using CarArchive.Core;
 using CarArchive.Services;
 using System.Security.Cryptography;
 using System.Text;
@@ -77,3 +77,15 @@ if(args.Length>0)
     rawEncoder.SetPixelData(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Ignore,1024,768,96,96,rawPixels.DetachPixelData());await rawEncoder.FlushAsync();rawImage.Seek(0);
     using(var reader=new DataReader(rawImage.GetInputStreamAt(0))) { await reader.LoadAsync((uint)rawImage.Size);var bytes=new byte[(int)rawImage.Size];reader.ReadBytes(bytes);var rawPath=Path.Combine(root,"provided-image","raw-ignore-orientation.png");await File.WriteAllBytesAsync(rawPath,bytes);Console.WriteLine($"RAW_IGNORE_ORIENTATION={rawPath}"); }
 }
+
+var videoFolder=await Windows.Storage.StorageFolder.GetFolderFromPathAsync(root);
+var videoFile=await videoFolder.CreateFileAsync("fixture.mp4");
+var composition=new Windows.Media.Editing.MediaComposition();
+composition.Clips.Add(Windows.Media.Editing.MediaClip.CreateFromColor(Windows.UI.Color.FromArgb(255,255,0,0),TimeSpan.FromSeconds(1)));
+composition.Clips.Add(Windows.Media.Editing.MediaClip.CreateFromColor(Windows.UI.Color.FromArgb(255,0,0,255),TimeSpan.FromSeconds(1)));
+var render=await composition.RenderToFileAsync(videoFile,Windows.Media.Editing.MediaTrimmingPreference.Precise,Windows.Media.MediaProperties.MediaEncodingProfile.CreateMp4(Windows.Media.MediaProperties.VideoEncodingQuality.Vga));
+Check(render==Windows.Media.Transcoding.TranscodeFailureReason.None,"Synthetic MP4 could not be encoded.");
+var video=PhotoService.Register(videoFile.Path).Reference;var videoHash=await ArchiveService.HashAsync(video.Path);video.VideoPositionSeconds=1.5;video.Crop=new(0,0,.5,1);
+var videoFrame=await DecodeAsync(await service.AnalysisJpegAsync(video,1280,default));
+Check(videoFrame.W<videoFrame.H && videoFrame.Pixels[0]>150 && videoFrame.Pixels[2]<100,"Video capture did not use the selected blue frame and crop.");
+Check(await ArchiveService.HashAsync(video.Path)==videoHash,"Video frame capture changed original.");Console.WriteLine("PASS native MP4 selected frame crop and original byte preservation");

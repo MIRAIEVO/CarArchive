@@ -1,4 +1,4 @@
-using CarArchive.Core;
+﻿using CarArchive.Core;
 using Microsoft.UI.Xaml.Controls;
 
 namespace CarArchive;
@@ -11,7 +11,7 @@ public sealed partial class MainPage
     private string? brandsGroupId;
     private void CloseBrandSuggestions()
     {
-        brandSuggestionsActive=false;brandsGroupId=null;TargetBrandEdit.IsSuggestionListOpen=false;TargetBrandEdit.ItemsSource=null;
+        brandSuggestionsActive=false;brandsGroupId=null;CloseSuggestionSurface(TargetBrandEdit);
     }
     private void OpenBrandSuggestions()
     {
@@ -28,8 +28,8 @@ public sealed partial class MainPage
     {
         if(!initialized || rendering || displayed?.Editable!=true || args.Reason!=AutoSuggestionBoxTextChangeReason.UserInput) return;
         EnglishInput(sender);if(sender.Text.Trim()==displayed.TargetBrand) return;
-        displayed.TargetBrand=sender.Text.Trim();displayed.ManualName=true;VM.MarkTouched(displayed);
-        CloseFolderSuggestions();UpdateExistingCategories();UpdateTargetPath();brandSuggestionsActive=true;UpdateBrandSuggestions();
+        var before=VM.CaptureEdits([displayed]);displayed.TargetBrand=sender.Text.Trim();displayed.ManualTargetBrand=true;VM.MarkTouched(displayed);
+        VM.RecordEdits(before,new(){displayed.Id},true);CloseFolderSuggestions();UpdateExistingCategories();UpdateTargetPath();brandSuggestionsActive=true;UpdateBrandSuggestions();
         CrashJournal.Trace("Archive.BrandEdited",displayed.Id);editorSaveTimer.Stop();editorSaveTimer.Start();
     }
     private void Brand_QuerySubmitted(AutoSuggestBox sender,AutoSuggestBoxQuerySubmittedEventArgs args)
@@ -41,8 +41,8 @@ public sealed partial class MainPage
         if(rendering || displayed?.Editable!=true || displayed!=VM.Selected || brandsGroupId!=displayed.Id || !brandItems.Contains(suggestion)) return;
         if(categorySignature!=CategorySignature() || !Directory.Exists(Path.Combine(VM.State.Settings.ArchiveRoot,suggestion.BrandDirectory)))
         { CloseBrandSuggestions();_=RefreshCategoryCatalogAsync(true);return; }
-        FlushEditor();displayed.TargetBrand=suggestion.BrandDirectory;displayed.ManualName=true;VM.MarkTouched(displayed);
+        var before=VM.CaptureEdits([displayed]);FlushEditor();displayed.TargetBrand=suggestion.BrandDirectory;displayed.ManualTargetBrand=true;VM.MarkTouched(displayed);
         rendering=true;try { TargetBrandEdit.Text=suggestion.BrandDirectory;UpdateExistingCategories();UpdateTargetPath(); }finally { rendering=false; }
-        CloseBrandSuggestions();CloseFolderSuggestions();VM.SaveGroup(displayed);CrashJournal.Trace("Archive.BrandSelected",displayed.Id);
+        VM.RecordEdits(before,new(){displayed.Id});CloseBrandSuggestions();CloseFolderSuggestions();VM.SaveGroup(displayed);CrashJournal.Trace("Archive.BrandSelected",displayed.Id);
     }
 }

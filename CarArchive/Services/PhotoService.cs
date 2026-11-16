@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -15,12 +15,13 @@ public sealed class PhotoService
     : IPhotoService
 {
     public static bool CurrentThumbnail(string path)=>Path.GetFileName(path).EndsWith("-thumb-full-v2.jpg",StringComparison.OrdinalIgnoreCase);
+    public async Task DrainAsync() { await Task.WhenAll(jobs.Values.Where(v=>v.IsValueCreated).Select(async v=>{try{await v.Value;}catch{}})); }
     public void ClearCompletedRequests() { foreach(var entry in jobs) if(entry.Value.IsValueCreated && entry.Value.Value.IsCompleted) jobs.TryRemove(entry.Key,out _); }
     private readonly string cacheDirectory;
     private readonly SynchronizationContext? ui=SynchronizationContext.Current;
     private readonly SemaphoreSlim decoders=new(2,2);
     private readonly ConcurrentDictionary<string,Lazy<Task<string>>> jobs=new();
-    public static readonly HashSet<string> Extensions=new(StringComparer.OrdinalIgnoreCase) { ".jpg",".jpeg",".png",".webp",".heic",".heif" };
+    public static readonly HashSet<string> Extensions=new(StringComparer.OrdinalIgnoreCase) { ".jpg",".jpeg",".png",".webp",".heic",".heif",".dng",".mp4",".mov",".m4v",".avi",".mkv",".wmv" };
     public PhotoService(string cacheDirectory) { this.cacheDirectory=cacheDirectory; Directory.CreateDirectory(cacheDirectory); }
     private void Publish(Action action) { if(ui is null || SynchronizationContext.Current==ui) action(); else ui.Post(_=>action(),null); }
     public static (ImageAsset Asset,Photo Reference) Register(string path)
@@ -40,7 +41,7 @@ public sealed class PhotoService
             var date=await Task.Run(async ()=> {
                 await decoders.WaitAsync(ct);
                 try {
-                    var file=await StorageFile.GetFileFromPathAsync(photo.Path); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
+                    var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,ct)); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
                     foreach(var query in new[]{"/app1/ifd/exif/{ushort=36867}","/ifd/exif/{ushort=36867}"})
                     {
                         try {
@@ -73,7 +74,7 @@ public sealed class PhotoService
                 await decoders.WaitAsync();
                 try {
                     var target=Path.Combine(cacheDirectory,key+"-thumb-full-v2.jpg"); if(File.Exists(target)) return target;
-                    var file=await StorageFile.GetFileFromPathAsync(photo.Path);
+                    var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,CancellationToken.None));
                     using var stream=await file.OpenReadAsync();var decoder=await BitmapDecoder.CreateAsync(stream);
                     // Always derive a complete oriented frame, never a cropped shell or EXIF thumbnail.
                     var data=await EncodeAsync(decoder,256,null);
@@ -102,7 +103,7 @@ public sealed class PhotoService
                 await decoders.WaitAsync();
                 try {
                     var target=Path.Combine(cacheDirectory,key+"-preview-v4.png"); if(File.Exists(target)) return target;
-                    var file=await StorageFile.GetFileFromPathAsync(photo.Path); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
+                    var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,CancellationToken.None)); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
                     await AtomicWriteAsync(target,await EncodeAsync(decoder,2048,null,BitmapEncoder.PngEncoderId)); return target;
                 } finally { decoders.Release(); }
             }))).Value.WaitAsync(ct);
@@ -119,17 +120,33 @@ public sealed class PhotoService
         return await Task.Run(async ()=> {
             await decoders.WaitAsync(ct);
             try {
-                var file=await StorageFile.GetFileFromPathAsync(photo.Path); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
+                var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,ct)); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
                 return await EncodeAsync(decoder,longestEdge,photo.Crop);
             } finally { decoders.Release(); }
         },ct);
+    }
+    public static bool IsVideo(Photo photo)=>new[]{".mp4",".mov",".m4v",".avi",".mkv",".wmv"}.Contains(Path.GetExtension(photo.Path),StringComparer.OrdinalIgnoreCase);
+    public async Task<string> DecodePathAsync(Photo photo,CancellationToken ct)
+    {
+        if(!IsVideo(photo)) return photo.Path;
+        var target=Path.Combine(cacheDirectory,Key(photo,"frame-"+photo.VideoPositionSeconds.ToString("F3",CultureInfo.InvariantCulture))+".jpg");
+        if(!File.Exists(target))
+        {
+            var composition=new Windows.Media.Editing.MediaComposition();
+            var clip=await Windows.Media.Editing.MediaClip.CreateFromFileAsync(await StorageFile.GetFileFromPathAsync(photo.Path));
+            composition.Clips.Add(clip);
+            var position=TimeSpan.FromSeconds(Math.Clamp(photo.VideoPositionSeconds,0,Math.Max(0,clip.OriginalDuration.TotalSeconds-0.001)));
+            using var frame=await composition.GetThumbnailAsync(position,0,0,Windows.Media.Editing.VideoFramePrecision.NearestFrame);
+            using var input=frame.AsStreamForRead();using var output=new MemoryStream();await input.CopyToAsync(output,ct);await AtomicWriteAsync(target,output.ToArray());
+        }
+        photo.AnalysisPath=target;return target;
     }
     private static async Task AtomicWriteAsync(string path,byte[] bytes)
     {
         var temp=path+"."+Guid.NewGuid().ToString("N")+".tmp";
         try { await File.WriteAllBytesAsync(temp,bytes); File.Move(temp,path,true); } finally { if(File.Exists(temp)) File.Delete(temp); }
     }
-    private void SetError(Photo photo,Exception e)=>Publish(()=> { photo.Error=e is FileNotFoundException or DirectoryNotFoundException?"原图位置已变化或文件不存在；缓存及分类记录已保留。":$"无法解码 {Path.GetExtension(photo.Path)}。HEIC/HEIF 可能需要 Windows HEIF/HEVC 图像扩展。{e.GetType().Name}"; if(photo.Asset is not null) photo.Asset.Refresh(); });
+    private void SetError(Photo photo,Exception e)=>Publish(()=> { photo.Error=e is FileNotFoundException or DirectoryNotFoundException?"原图位置已变化或文件不存在；缓存及分类记录已保留。":$"无法解码 {Path.GetExtension(photo.Path)}。HEIC/HEIF 需要相应 HEIF/HEVC 扩展；DNG 需要 Windows Raw Image Extension；视频需要对应系统解码器。{e.GetType().Name}"; if(photo.Asset is not null) photo.Asset.Refresh(); });
     private static async Task<byte[]> EncodeAsync(BitmapDecoder decoder,int longestEdge,CropRect? crop,Guid? encoderId=null)
     {
         var orientation=await ReadOrientationAsync(decoder);

@@ -23,7 +23,7 @@ public sealed partial class MainPage
             var alternateRoot=Path.Combine(directory,"alternate");Directory.CreateDirectory(Path.Combine(alternateRoot,"Honda","Civic (FK8)"));
             var source=Path.Combine(directory,"source.jpg");await File.WriteAllBytesAsync(source,await Services.PhotoService.ConnectivityImageAsync());
             await VM.ImportAsync([source],true,default);await VM.BackgroundImport;
-            var first=VM.Groups[0];var second=VM.Duplicate(first);
+            var first=VM.Groups[0];var second=await VM.DuplicateAsync(first,default);
             first.Confirmed=new() { Brand="Audi",Series="A4",Code="B9" };first.FolderName="Original manual name";first.TargetBrand="Audi";first.ManualName=false;
             second.FolderName="Second independent group";second.TargetBrand="Audi";
             VM.State.Settings.ArchiveRoot=root;
@@ -33,13 +33,13 @@ public sealed partial class MainPage
             VM.Selected=first;RenderSelection();await RefreshCategoryCatalogAsync();
             if(categoryItems.Count!=4 || categoryItems.Any(item=>!item.Exists) || first.ManualName) throw new Exception("Disk-only catalog or programmatic-load guard failed.");
             FolderEdit.Text="A4 avnat B9";FolderEdit.Focus(FocusState.Programmatic);OpenFolderSuggestions();await categoryRefresh;await Task.Delay(150);
-            var matches=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.ToArray() ?? [];
-            if(!FolderEdit.IsSuggestionListOpen || matches.Length==0 || matches[0].FolderName!="A4 Avant (B9 Facelift)" || matches[0].BrandDirectory!="Audi")
+            var matches=SuggestionItems(FolderEdit).ToArray();
+            if(!SuggestionOpen(FolderEdit) || matches.Length==0 || matches[0].FolderName!="A4 Avant (B9 Facelift)" || matches[0].BrandDirectory!="Audi")
                 throw new Exception("Focus-triggered fuzzy suggestions did not open or rank correctly.");
             if(first.ManualName || first.FolderName!="Original manual name" || matches.Any(item=>item.DisplayName!=item.FolderName+" / "+item.BrandDirectory))
                 throw new Exception("Opening suggestions modified the group or changed the compact model/brand presentation.");
             CloseFolderSuggestions();OpenFolderSuggestions();await categoryRefresh;
-            if(!FolderEdit.IsSuggestionListOpen) throw new Exception("Reopening suggestions without editing input failed.");
+            if(!SuggestionOpen(FolderEdit)) throw new Exception("Reopening suggestions without editing input failed.");
             CloseFolderSuggestions();RenderSelection();
             var chosen=categoryItems.First(item=>item.BrandDirectory=="Benz" && item.Exists);
             suggestionsGroupId=first.Id;ChooseCategory(chosen);
@@ -61,8 +61,8 @@ public sealed partial class MainPage
             timer.Tick+=(_,_)=>
             {
                 var snapshot=JsonSerializer.Serialize(new { Status="Passed",PreflightChecks=7,Root=VM.State.Settings.ArchiveRoot,Selected=displayed?.Id,
-                    Input=FolderEdit.Text,Brand=TargetBrandEdit.Text,Target=TargetPathText.Text,Open=FolderEdit.IsSuggestionListOpen,
-                    Suggestions=(FolderEdit.ItemsSource as IEnumerable<CategorySuggestion>)?.Select(item=>new { item.FolderName,item.BrandDirectory,item.Exists }).ToArray(),
+                    Input=FolderEdit.Text,Brand=TargetBrandEdit.Text,Target=TargetPathText.Text,Open=SuggestionOpen(FolderEdit),
+                    Suggestions=SuggestionItems(FolderEdit).Select(item=>new { item.FolderName,item.BrandDirectory,item.Exists }).ToArray(),
                     Groups=VM.Groups.Select(group=>new { group.Id,group.FolderName,group.TargetBrand,group.ManualName,IdentityBrand=group.Confirmed.Brand }).ToArray(),
                     FooterBottom=ArchiveFooter.TransformToVisual(BodyGrid).TransformPoint(new(0,ArchiveFooter.ActualHeight)).Y,BodyHeight=BodyGrid.ActualHeight,
                     Theme=ActualTheme.ToString(),Narrow=narrowLayout,SourceExists=File.Exists(source),Jobs=VM.Store.Jobs().Count },StateStore.Json);

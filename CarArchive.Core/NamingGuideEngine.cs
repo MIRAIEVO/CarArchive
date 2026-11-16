@@ -4,10 +4,12 @@ namespace CarArchive.Core;
 
 public static class NamingGuideEngine
 {
+    private static readonly NamingGuide Mandatory=new() { BrandPolicies=NamingPolicies.Standard() };
     public static NamingDecision Generate(CarIdentity car,WorkspaceState state,NamingGuide? guide=null)
     {
         var warnings=new List<string>();
-        var brand=guide?.Index.ResolveBrand(car.Brand,state) ?? NamingGuideBuilder.MapBrand(car.Brand,state);
+        var brand=BuiltInNamingGuide.ResolveBrand(car,state,guide ?? Mandatory);
+        var policy=NamingPolicies.For(brand,guide ?? Mandatory) ?? NamingPolicies.For(brand,Mandatory);
         var model=LatinText.English(NamingText.FullModel(car));
         var family=NamingText.Family(brand,car.Series,model);
         var generation=NamingText.Generation(car.Generation);
@@ -57,6 +59,10 @@ public static class NamingGuideEngine
         var reason=profile is null?"默认：完整型号＋代次／改款":profile.Id+" · "+profile.Brand+" / "+profile.Family+" · "+profile.Resolution;
         style=LocalNamingLearning.SuffixStyle(car,state,style,out var learnedSuffix);
         if(learnedSuffix.Length>0) reason=learnedSuffix;
+        if(policy?.Suffix=="none") { style="";reason+="；明确补充：不添加代次／代号括号"; }
+        else if(policy?.Suffix is { Length:>0 } requiredSuffix) { style=requiredSuffix;reason+="；明确补充：使用代号"; }
+        if(policy?.ModelConvention=="Porsche" && family is "718" or "Cayman" or "Boxster")
+        { style="{code} {phase}";reason+="；Porsche 跑车车系使用代号"; }
         // Historical aliases select suffix policy only. They cannot shorten the full designation,
         // reintroduce a brand prefix, or discard verified trim/special-edition information.
 
@@ -118,6 +124,7 @@ public static class NamingGuideEngine
             model=Regex.Replace(model,@"\bS[ -]line\b","S-line",RegexOptions.IgnoreCase);
         }
         if(b=="bmw") model=Regex.Replace(model,"Coupé","Coupe",RegexOptions.IgnoreCase);
+        model=NamingPolicies.Model(model,family,policy);
         model=NamingText.RemoveRepeatedBodyTerms(model);
         var number=Regex.Match(generation,@"^\d+").Value;
         var roman=number.Length>0?NamingText.Roman(int.Parse(number)):"";
@@ -132,7 +139,15 @@ public static class NamingGuideEngine
         var suffix=Regex.Replace(style,@"\{(\w+)\}",m=>values.GetValueOrDefault(m.Groups[1].Value,""));
         suffix=Regex.Replace(NamingText.Clean(suffix),@"\s+,",",").Trim(' ', ',');
         if(model.Length==0) { warnings.Add("完整型号为空，请人工补充");return new("",reason,warnings); }
-        return LocalNamingLearning.ApplyExact(car,state,new(LatinText.English(NamingText.Clean(model+(suffix.Length>0?" ("+suffix+")":""))),reason,warnings));
+        var generated=new NamingDecision(LatinText.English(NamingText.Clean(model+(suffix.Length>0?" ("+suffix+")":""))),reason,warnings);
+        var remembered=LocalNamingLearning.ApplyExact(car,state,generated);
+        // Explicit supplements cannot be bypassed by an old exact-name memory.
+        if(policy?.Suffix.Length>0 || policy?.ModelConvention is "AMG" or "MercedesFullSeries" || policy?.ModelConvention=="Porsche" && family is "718" or "911" or "Cayman" or "Boxster")
+        {
+            var oldParts=Regex.Match(remembered.Name,@"^(.*?)(?:\s+\(([^()]*)\))?$");
+            if(oldParts.Groups[2].Value!=suffix || NamingPolicies.Model(oldParts.Groups[1].Value,family,policy)!=oldParts.Groups[1].Value) return generated;
+        }
+        return remembered;
     }
 
 }

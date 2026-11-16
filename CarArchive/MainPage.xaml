@@ -23,6 +23,7 @@
       <TextBlock x:Name="ModeModelText" FontSize="12" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <Slider x:Name="ModeSlider" Minimum="0" Maximum="3" StepFrequency="1" TickFrequency="1" TickPlacement="BottomRight" SnapsTo="StepValues" IsThumbToolTipEnabled="False" ValueChanged="ModeSlider_Changed" AutomationProperties.Name="识别模式"/>
       <TextBlock x:Name="ModeDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <ToggleSwitch x:Name="UploadMultipleToggle" Header="上传照片" OffContent="单张：当前预览／框选" OnContent="多张：所有框选，无框选用当前整图" Toggled="UploadMultiple_Changed"/>
       <HyperlinkButton Content="模型与检索设置" Click="ModeSettings_Click" HorizontalAlignment="Center"/>
      </StackPanel></Flyout></DropDownButton.Flyout>
     </DropDownButton>
@@ -37,7 +38,7 @@
       <MenuFlyoutItem Icon="Setting" Text="设置" Click="Settings_Click"/>
       <MenuFlyoutItem Icon="Edit" Text="命名学习" Click="Rules_Click"/>
       <MenuFlyoutItem Icon="Clock" Text="操作记录与恢复" Click="History_Click"/>
-      <MenuFlyoutItem Icon="Undo" Text="撤销最近归档" Click="Undo_Click"/>
+      <MenuFlyoutItem Icon="Undo" Text="撤回最近操作" Click="Undo_Click"/>
      </MenuFlyout></Button.Flyout>
     </Button>
    </StackPanel>
@@ -55,7 +56,7 @@
     <Grid.RowDefinitions><RowDefinition Height="*"/></Grid.RowDefinitions>
     <ListView x:Name="GroupList" ContextRequested="Group_ContextRequested" ItemsSource="{x:Bind VM.Groups}" SelectionMode="Extended" SelectionChanged="Group_Changed" Padding="0">
      <ListView.Resources><SolidColorBrush x:Key="ListViewItemSelectionIndicatorBrush" Color="Transparent"/><SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="{ThemeResource SystemAccentColor}" Opacity="0.20"/><SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemAccentColor}" Opacity="0.28"/><SolidColorBrush x:Key="ListViewItemBackgroundSelectedUnfocused" Color="{ThemeResource SystemAccentColor}" Opacity="0.18"/></ListView.Resources>
-     <ListView.ContextFlyout><MenuFlyout><MenuFlyoutItem x:Name="MergeGroupsMenu" Text="合并选中分组" Click="Merge_Click"/><MenuFlyoutItem x:Name="DuplicateGroupMenu" Text="复制分组" Click="Duplicate_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="DeleteGroupsMenu" Text="删除选中分组（保留源照片）" Click="DeleteImportedGroup_Click"/><MenuFlyoutItem x:Name="DeleteArchivedMenu" Text="删除所有已归档分组" Click="DeleteAllArchivedGroups_Click"/></MenuFlyout></ListView.ContextFlyout>
+     <ListView.ContextFlyout><MenuFlyout><MenuFlyoutItem Text="撤回本组操作" Click="UndoGroup_Click"/><MenuFlyoutItem Text="重做本组操作" Click="RedoGroup_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="MergeGroupsMenu" Text="合并选中分组" Click="Merge_Click"/><MenuFlyoutItem x:Name="DuplicateGroupMenu" Text="复制分组" Click="Duplicate_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="DeleteGroupsMenu" Text="删除选中分组（保留源照片）" Click="DeleteImportedGroup_Click"/><MenuFlyoutItem x:Name="RecycleGroupsMenu" Text="删除分组并回收源照片" Click="RecycleGroups_Click"/><MenuFlyoutItem x:Name="DeleteArchivedMenu" Text="清理已归档记录（保留文件）" Click="DeleteAllArchivedGroups_Click"/></MenuFlyout></ListView.ContextFlyout>
      <ListView.ItemTemplate><DataTemplate x:DataType="core:PhotoGroup">
       <Grid Padding="0,5" ColumnSpacing="7" Opacity="{x:Bind DisplayOpacity,Mode=OneWay}">
        <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/></Grid.ColumnDefinitions>
@@ -70,15 +71,16 @@
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition x:Name="ThumbnailRow" Height="146"/></Grid.RowDefinitions>
     <TextBlock x:Name="PhotoCaption" Text="点击缩略图即设为代表图" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
     <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6" MinHeight="80">
-     <Grid x:Name="PreviewHost" Background="Transparent" PointerPressed="Crop_Pressed" PointerMoved="Crop_Moved" PointerReleased="Crop_Released" PointerCanceled="Crop_Canceled">
-      <Image x:Name="MainImage" Stretch="Uniform"/><TextBlock x:Name="EmptyPreview" Text="拖入一组照片，或批量导入文件夹" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+     <ScrollViewer x:Name="PreviewZoom" SizeChanged="PreviewZoom_SizeChanged" ZoomMode="Enabled" MinZoomFactor="1" MaxZoomFactor="8" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ViewChanged="PreviewZoom_Changed"><Grid x:Name="PreviewHost" Background="Transparent" PointerWheelChanged="Preview_WheelChanged" PointerPressed="Crop_Pressed" PointerMoved="Crop_Moved" PointerReleased="Crop_Released" PointerCanceled="Crop_Canceled">
+      <MediaPlayerElement x:Name="VideoPlayer" Visibility="Collapsed" AreTransportControlsEnabled="True"/><Image x:Name="MainImage" Stretch="Uniform"/><TextBlock x:Name="EmptyPreview" Text="拖入一组照片，或批量导入文件夹" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <Canvas x:Name="CropCanvas" IsHitTestVisible="False"><Rectangle x:Name="CropOutline" Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2" Fill="#202080B0" Visibility="Collapsed"/></Canvas>
      </Grid>
-    </Border>
+    </ScrollViewer></Border>
     <CommandBar x:Name="AnalysisBar" Grid.Row="2" Height="40" HorizontalAlignment="Center" DefaultLabelPosition="Right" ClosedDisplayMode="Compact" Background="Transparent">
      <AppBarToggleButton x:Name="CropToggle" Icon="Crop" Label="框选目标" Click="CropToggle_Click"/>
    <AppBarButton Icon="Find" Label="联网识别" Click="Recognize_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
-   <AppBarButton Icon="Refresh" Label="深入查证" Click="Deep_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
+   <AppBarButton Icon="Copy" Label="深入查证" Click="Deep_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
+   <AppBarButton Icon="Copy" Label="复制验证提示词" Click="CopyVerificationPrompt_Click"/>
    <AppBarButton Icon="Cancel" Label="取消本组" Click="Cancel_Click" IsEnabled="{x:Bind VM.SelectedWorking,Mode=OneWay}"/>
      <AppBarButton Icon="Clear" Label="清除框选" Click="ClearCrop_Click"/>
      <AppBarButton Icon="Pictures" Label="查看原图" Click="OpenPhoto_Click"/>
@@ -86,7 +88,7 @@
     <ListView x:Name="PhotoList" Grid.Row="3" ContextRequested="Photo_ContextRequested" SelectionMode="Extended" SelectionChanged="Photo_Changed" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollMode="Enabled" ScrollViewer.VerticalScrollMode="Disabled">
      <ListView.Resources><SolidColorBrush x:Key="ListViewItemSelectionIndicatorBrush" Color="Transparent"/><SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent"/><SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent"/><SolidColorBrush x:Key="ListViewItemBackgroundSelectedUnfocused" Color="Transparent"/><SolidColorBrush x:Key="ThumbnailCaptionSelectionBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.20"/></ListView.Resources>
      <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,2,0"/><Setter Property="MinWidth" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style></ListView.ItemContainerStyle>
-     <ListView.ContextFlyout><MenuFlyout><MenuFlyoutItem x:Name="SplitPhotosMenu" Text="拆出选中照片" Click="Split_Click"/><MenuFlyoutItem x:Name="CopyPhotosMenu" Text="复制选中照片为新分组" Click="CopyPhotos_Click"/><MenuFlyoutItem x:Name="ExcludePhotosMenu" Text="排除／恢复选中照片" Click="Exclude_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="RemovePhotosMenu" Text="从本组删除选中照片（保留源照片）" Click="RemovePhotos_Click"/></MenuFlyout></ListView.ContextFlyout>
+     <ListView.ContextFlyout><MenuFlyout><MenuFlyoutItem Text="撤回本组操作" Click="UndoGroup_Click"/><MenuFlyoutItem Text="重做本组操作" Click="RedoGroup_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="SplitPhotosMenu" Text="拆出选中照片" Click="Split_Click"/><MenuFlyoutItem x:Name="CopyPhotosMenu" Text="复制选中照片为新分组" Click="CopyPhotos_Click"/><MenuFlyoutItem x:Name="ExcludePhotosMenu" Text="排除／恢复选中照片" Click="Exclude_Click"/><MenuFlyoutSeparator/><MenuFlyoutItem x:Name="RemovePhotosMenu" Text="从本组删除选中照片（保留源照片）" Click="RemovePhotos_Click"/><MenuFlyoutItem x:Name="RecyclePhotosMenu" Text="删除选中图片并回收源照片" Click="RecyclePhotos_Click"/></MenuFlyout></ListView.ContextFlyout>
      <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListView.ItemsPanel>
      <ListView.ItemTemplate><DataTemplate x:DataType="core:Photo"><StackPanel Width="108" Spacing="2" Opacity="{x:Bind ThumbnailOpacity,Mode=OneWay}"><Image Source="{Binding ThumbnailUri,Converter={StaticResource SafeImageSourceConverter}}" Height="120" Stretch="Uniform" Loaded="Thumbnail_Loaded" ImageOpened="Thumbnail_Opened"/><Border Background="Transparent" HorizontalAlignment="Stretch" Padding="0,4" Loaded="ThumbnailCaption_Loaded"><TextBlock Text="{x:Bind Caption,Mode=OneWay}" FontSize="10" TextTrimming="CharacterEllipsis"/></Border></StackPanel></DataTemplate></ListView.ItemTemplate>
     </ListView>
@@ -143,7 +145,7 @@
        <TextBlock x:Name="TargetPathText" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
        </ScrollViewer>
-       <Grid Grid.Row="1" ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><Button Content="记住名称" Click="Learn_Click"/><Button Grid.Column="1" Content="确认并移动" Click="Archive_Click" Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Ctrl + Enter"/></Grid>
+       <Grid Grid.Row="1" ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><Button Content="记住名称" Click="Learn_Click"/><Button x:Name="ArchiveActionButton" Grid.Column="1" Content="确认并移动" Click="Archive_Click" Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Ctrl + Enter"/></Grid>
       </Grid>
      </ContentControl>
     </Border>

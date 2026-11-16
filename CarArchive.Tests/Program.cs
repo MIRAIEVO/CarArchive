@@ -77,11 +77,11 @@ Test("Category scan supports cancellation and refreshes physical directory names
 Test("Legacy exact names no longer bypass new generation and display-only Body rules",()=> {
     var naming=new NamingService(); var state=new WorkspaceState(); var identity=new CarIdentity { Brand="Mercedes-Benz",Series="E-Class",Body="Estate",Code="S212" };
     state.Rules.Add(new() { Brand="Mercedes-Benz",From="Estate",To="Station Wagon" });
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class");
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class ("+identity.Code+")");
     naming.Remember(identity,"Benz E-Class Estate AMG-Line (S212)",state);
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); identity.Code="S214";
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); state.Rules[0].Enabled=false;
-    Assert(naming.Suggest(identity,state,[]).Name=="E-Class"); return Task.CompletedTask;
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class ("+identity.Code+")"); identity.Code="S214";
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class ("+identity.Code+")"); state.Rules[0].Enabled=false;
+    Assert(naming.Suggest(identity,state,[]).Name=="E-Class ("+identity.Code+")"); return Task.CompletedTask;
 });
 Test("Learning only generalizes explicit vocabulary substitutions",()=> {
     var naming=new NamingService(); Assert(naming.ProposeRule("E-Class Estate (S212)","E-Class Station Wagon (S212)","Benz")?.From=="Estate");
@@ -236,10 +236,15 @@ Test("Requests include real search tool, image data, revision and no stored inte
     }));
     var service=new GeminiService(client,new FakeImages(),()=>"test-key",()=>{}); var result=await service.RecognizeAsync([new Photo()],new(),false,default); Assert(seen && !result.Grounded);
 });
+PhotoLifecycleTests.Register(Test);
 V2Tests.Register(Test);
 NamingTests.Register(Test);
+BuiltInNamingTests.Register(Test);
+UploadSelectionTests.Register(Test);
 CategorySearchTests.Register(Test);
 UsabilityTests.Register(Test);
+InteractionTests.Register(Test);
+TokenOptimizationTests.Register(Test);
 VerificationTests.Register(Test);
 LocalLearningTests.Register(Test);
 PortableDataTests.Register(Test);

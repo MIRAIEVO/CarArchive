@@ -1,4 +1,4 @@
-using CarArchive.Core;
+﻿using CarArchive.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -73,8 +73,7 @@ public sealed partial class MainPage
     {
         folderSuggestionsActive = false;
         suggestionsGroupId = null;
-        FolderEdit.IsSuggestionListOpen = false;
-        FolderEdit.ItemsSource = null;
+        CloseSuggestionSurface(FolderEdit);
     }
 
     private void UpdateFolderSuggestions()
@@ -98,9 +97,10 @@ public sealed partial class MainPage
         // Model-equal text is not a user edit and must not mark another group as manually named.
         EnglishInput(sender);
         if (sender.Text.Trim() == displayed.FolderName) return;
+        var before=VM.CaptureEdits([displayed]);
         displayed.ManualName = true;
         displayed.FolderName = sender.Text.Trim();
-        displayed.AppliedRule = "手动修改名称";
+        displayed.AppliedRule = "手动修改名称";VM.RecordEdits(before,new(){displayed.Id},true);
         CrashJournal.Trace("Archive.NameEdited",displayed.Id);VM.MarkTouched(displayed);
         displayed.Refresh();
         RuleText.Text = displayed.AppliedRule;
@@ -139,7 +139,7 @@ public sealed partial class MainPage
         }
         editorSaveTimer.Stop();
         FlushEditor();
-        CategoryCatalogService.Apply(displayed, suggestion);
+        var before=VM.CaptureEdits([displayed]);CategoryCatalogService.Apply(displayed, suggestion);VM.RecordEdits(before,new(){displayed.Id});
         VM.MarkTouched(displayed);
         CloseFolderSuggestions();
         rendering = true;
@@ -180,6 +180,12 @@ public sealed partial class MainPage
                 text = Path.GetFullPath(Path.Combine(root, NamingService.SafeSegment(brand), NamingService.SafeSegment(name)));
         }
         catch (ArgumentException) { text = "名称或品牌目录无效，请修改后归档"; }
+        if(displayed is not null)
+        {
+            var recognized=displayed.Confirmed.Brand.Length>0?VM.Naming.ResolveBrand(displayed.Confirmed,VM.State):"";
+            RuleText.Text=displayed.AppliedRule+(displayed.ManualTargetBrand && recognized.Length>0 && !recognized.Equals(brand,StringComparison.OrdinalIgnoreCase)?$" · 手动品牌目录：{brand}；识别品牌：{recognized}":"");
+            ToolTipService.SetToolTip(RuleText,RuleText.Text);
+        }
         TargetPathText.Text = text;
         ToolTipService.SetToolTip(TargetPathText, text);
     }

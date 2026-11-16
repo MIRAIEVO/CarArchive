@@ -1,4 +1,4 @@
-﻿#if DEBUG
+#if DEBUG
 using System.Text.Json;
 using CarArchive.Core;
 using CarArchive.Services;

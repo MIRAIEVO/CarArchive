@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CarArchive.Core;
 
-public sealed class StateStore : IStateStore
+public sealed partial class StateStore : IStateStore, IPhotoOperationStore
 {
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = false, PropertyNameCaseInsensitive = true };
     private readonly string connectionString;

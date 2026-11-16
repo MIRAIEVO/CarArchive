@@ -30,11 +30,13 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         if(settings.Search==SearchPreference.ImageReference && settings.ImageSearchVerifiedModel!=settings.Model) throw new InvalidOperationException("当前模型尚未通过图片资料检索检查。请选择自动或普通 Google 搜索，或在设置中检查图片能力。真正的 Lens 反向图片搜索不属于此接口能力。");
         // verifyAgain is retained for older backend consumers. Deep checks require an explicit candidate via VerifyAsync.
         var count = ViewCount(settings.Mode);
-        var selected = usable[0].Crop is not null ? new List<Photo> { usable[0] } : SelectViews(usable, count);
-        var input = new List<object> { new { type = "text", text = minimal?MinimalInstructions:Instructions + ProfileInstructions(settings.Mode) } };
+        var selected = settings.ExplicitUploadSelection ? usable : usable[0].Crop is not null ? new List<Photo> { usable[0] } : SelectViews(usable, count);
+        var instructions=settings.OptimizeRecognitionTokens?TokenOptimization.RecognitionPrompt(settings.Mode):minimal?MinimalInstructions:Instructions+ProfileInstructions(settings.Mode);
+        var input = new List<object> { new { type = "text", text = instructions } };
         foreach (var photo in selected)
         {
-            input.Add(new { type = "text", text = $"View {selected.IndexOf(photo)+1}. {(photo.Crop is null ? "Full image; target usually central, but do not assume if multiple prominent cars." : "User-selected target crop.")}" });
+            var view=selected.IndexOf(photo)+1;
+            input.Add(new { type = "text", text = settings.OptimizeRecognitionTokens?TokenOptimization.RecognitionViewLabel(view,photo.Crop is not null):$"View {view}. {(photo.Crop is null ? "Full image; target usually central, but do not assume if multiple prominent cars." : "User-selected target crop.")}" });
             input.Add(new { type = "image", mime_type = "image/jpeg", data = Convert.ToBase64String(await images.AnalysisJpegAsync(photo, photo.Crop is not null || minimal || settings.Mode == RecognitionMode.Economy ? 1280 : 2048, ct)) });
         }
         using var document = await SendAsync(settings, input, true, minimal?FieldsSchema():IdentitySchema(settings.Mode==RecognitionMode.Accurate), ct,minimal);
@@ -136,13 +138,30 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         if (text.Length == 0) throw new InvalidDataException("模型未返回识别结果，可能被过滤或尚未完成。");
         return text;
     }
-    public static RecognitionResult ParseRecognition(JsonElement root, string model)
+    public static RecognitionResult ParseRecognition(JsonElement root,string model)
+        =>ParseRecognition(root,model,null,null);
+
+    private static RecognitionResult ParseRecognition(JsonElement root,string model,TokenOptimizationStage? optimizedStage,CarIdentity? identityFallback)
     {
         RecognitionResult result;
         try
         {
-            var text=ExtractText(root);using var parsed=JsonDocument.Parse(text);
-            result=parsed.RootElement.TryGetProperty("brand",out _)?new RecognitionResult { Identity=JsonSerializer.Deserialize<CarIdentity>(text,StateStore.Json)! }:JsonSerializer.Deserialize<RecognitionResult>(text,StateStore.Json) ?? throw new JsonException();
+            var text=ExtractText(root);
+            if(optimizedStage is { } stage)
+            {
+                if(identityFallback is null) throw new JsonException();
+                result=stage switch {
+                    TokenOptimizationStage.FeatureResearch=>TokenOptimization.ParseFeatureResearch(text,identityFallback),
+                    TokenOptimizationStage.PhotoComparison=>TokenOptimization.ParsePhotoComparison(text,identityFallback,false),
+                    TokenOptimizationStage.Supplement=>TokenOptimization.ParsePhotoComparison(text,identityFallback,true),
+                    _=>throw new JsonException()
+                };
+            }
+            else
+            {
+                using var parsed=JsonDocument.Parse(text);
+                result=parsed.RootElement.TryGetProperty("brand",out _)?new RecognitionResult { Identity=JsonSerializer.Deserialize<CarIdentity>(text,StateStore.Json)! }:JsonSerializer.Deserialize<RecognitionResult>(text,StateStore.Json) ?? throw new JsonException();
+            }
         }
         catch (JsonException) { throw new InvalidDataException("识别结果格式异常，未采用结果，请重试。"); }
         if (result.Identity is null || result.Alternatives is null) throw new InvalidDataException("识别结果字段缺失。");
