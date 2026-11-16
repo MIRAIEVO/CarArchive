@@ -43,7 +43,7 @@ public sealed partial class MainPage
         VM.PhotoUpdated+=photo=> { if(currentPhoto?.AssetId==photo.AssetId && MainImage.Source is null) _=ShowPhotoAsync(currentPhoto); };
         PreviewKeyDown+=Commands_KeyDown;
         RefreshCommandHints();
-        _=PrepareIndependentPhotosAsync();
+        _=PrepareIndependentPhotosAsync();_ = WarmClipboardAsync();
         App.MainWindow!.Closed += (_, _) => { categoryClosed=true;categoryCancellation?.Cancel();previewCancellation?.Cancel();FlushEditor();VM.Close();CrashJournal.Current?.Complete(); };
         RenderSelection();
         _ = InitializeNamingGuideAsync();
@@ -61,6 +61,8 @@ public sealed partial class MainPage
         if(liveIndex>=0 && liveIndex+1<args.Length) _=RunLiveVerificationAsync(args[liveIndex+1]);
         var abIndex=Array.IndexOf(args,"--verify-token-ab");
         if(abIndex>=0 && abIndex+1<args.Length) _=RunTokenAbVerificationAsync(args[abIndex+1]);
+        var v121Index=Array.IndexOf(args,"--verify-v121");
+        if(v121Index>=0 && v121Index+1<args.Length) _=RunV121VerificationAsync(args[v121Index+1]);
         var v12Index=Array.IndexOf(args,"--verify-v12");
         if(v12Index>=0 && v12Index+1<args.Length) _=RunV12VerificationAsync(args[v12Index+1]);
         var v115Index=Array.IndexOf(args,"--verify-v115");
@@ -121,7 +123,7 @@ public sealed partial class MainPage
             currentPhoto = displayed?.Photos.FirstOrDefault(p=>p.Id==displayed.LastViewedId) ?? displayed?.Photos.FirstOrDefault(p => p.Id == displayed.RepresentativeId) ?? displayed?.Photos.FirstOrDefault();
             PhotoList.SelectedItem = currentPhoto;
             var result = displayed?.Suggestion;
-            VerificationText.Text = displayed?.Archived==true?"已归档 · 撤销后可修改":result is null ? "尚未识别 · 可手动填写" : result.Grounded ? "已获得联网依据 · 等待你的最终复核" : "未完成查证 · 请核对不确定项";
+            VerificationText.Text = displayed?.Archived==true?"已归档 · 撤销后可修改":result is null ? (displayed?.State.Contains("网页 JSON")==true?"已导入网页字段 · 请人工核对":"尚未识别 · 可手动填写") : result.ActualSearch.StartsWith("Gemini（")?"Gemini 识别完成 · 未启用联网核实":result.Grounded ? "已获得联网依据 · 等待你的最终复核" : "未完成查证 · 请核对不确定项";
             ObservationsText.Text = result?.Observations ?? "";
             UncertaintyText.Text = result is null ? "" : result.Uncertainties + (result.Alternatives.Count > 0 ? "\n备选："+string.Join("；",result.Alternatives) : "");
             ResearchText.Text = result?.Research ?? ""; QueriesText.Text = result is null ? "" : "实际搜索词：\n"+string.Join("\n",result.Queries);
@@ -161,7 +163,7 @@ public sealed partial class MainPage
     private async Task ShowPhotoAsync(Photo? photo)
     {
         previewCancellation?.Cancel();previewCancellation?.Dispose();previewCancellation=new();var ct=previewCancellation.Token;
-        MainImage.Visibility=Visibility.Visible;PreviewZoom.ChangeView(0,0,1);VideoPlayer.MediaPlayer?.Pause();VideoPlayer.Source=null;VideoPlayer.Visibility=Visibility.Collapsed;
+        originalPreviewId=null;MainImage.Visibility=Visibility.Visible;PreviewZoom.ChangeView(0,0,1);VideoPlayer.MediaPlayer?.Pause();VideoPlayer.Source=null;VideoPlayer.Visibility=Visibility.Collapsed;
         var version = ++previewVersion; CropOutline.Visibility = Visibility.Collapsed;
         PhotoCaption.Text = photo is null ? "支持拖入 JPG、PNG、WebP、HEIC/HEIF" : photo.Caption + (photo.Excluded ? " · 已排除" : "");
         if (photo is null) { MainImage.Source = null; EmptyPreview.Visibility = Visibility.Visible; EmptyPreview.Text = "拖入一组照片，或批量导入文件夹"; return; }

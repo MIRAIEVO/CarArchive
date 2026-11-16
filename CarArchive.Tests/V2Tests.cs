@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using CarArchive.Core;
 using Microsoft.Data.Sqlite;
@@ -95,7 +95,7 @@ static class V2Tests
         });
         test("V2: unsupported image-search preference fails before any paid request",async ()=> {
             var called=false;using var http=new HttpClient(new Handler(_=> { called=true;return Response("{}"); }));var service=new GeminiService(http,new Images(),()=>"test-key",()=>{});
-            await Throws<InvalidOperationException>(()=>service.RecognizeAsync([new Photo()],new() { Search=SearchPreference.ImageReference },false,default));Check(!called);
+            await Throws<InvalidOperationException>(()=>service.RecognizeAsync([new Photo()],new() { Search=(SearchPreference)2 },false,default));Check(!called);
         });
         test("V2: model-output parsing excludes thought summaries and reports raw search count",()=> {
             var response=new { steps=new object[] { new { type="thought",summary=new[] { new { type="text",text="This is not JSON" } } },new { type="google_search_call",queries=new[] { "q","q" },search_type="image_search" },new { type="model_output",content=new[] { new { type="text",text="{\"brand\":\"Audi\"}" } } } },usage=new { total_input_tokens=12,total_output_tokens=34,total_thought_tokens=20 } };

@@ -1,4 +1,4 @@
-﻿param([string]$Version='1.2',[switch]$NoRestore)
+﻿param([string]$Version='1.2.1',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -8,7 +8,7 @@ $program=Join-Path $releaseRoot 'Program'
 $docs=Join-Path $releaseRoot 'Documentation'
 $data=Join-Path $releaseRoot 'Data'
 New-Item -ItemType Directory -Path $program,$docs,$data -Force | Out-Null
-$publish=@('publish',(Join-Path $repositoryRoot 'CarArchive\CarArchive.csproj'),'-c','Release','-r','win-x64','-p:Platform=x64','--self-contained','true','-p:PublishReadyToRun=false','-p:PublishTrimmed=false','-p:NuGetAudit=false','-o',$program)
+$publish=@('publish',(Join-Path $repositoryRoot 'CarArchive\CarArchive.csproj'),'-c','Release','-r','win-x64','-p:Platform=x64','--self-contained','true','-p:PublishReadyToRun=false','-p:PublishTrimmed=false','-p:NuGetAudit=false','-p:IncludeSourceRevisionInInformationalVersion=false','-o',$program)
 if($NoRestore){$publish+='--no-restore'}
 & dotnet @publish
 if($LASTEXITCODE -ne 0){throw 'CarArchive publish failed'}
@@ -47,7 +47,7 @@ foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充�
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.2: per-group upload selection, photo/video indexing, independent edit undo/redo, manual verification clipboard, bundled naming guidance.
+Release 1.2.1: fast EXIF containers, cursor-anchored zoom, cropped-image copy, pasted identity JSON, Gemini/grounded modes, model picker and bounded naming audit.
 Brand, series and model naming guidance is bundled for offline use; existing archive folders are not renamed.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8

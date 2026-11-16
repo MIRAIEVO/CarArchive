@@ -17,7 +17,7 @@ public abstract class Observable : INotifyPropertyChanged
 }
 
 public enum RecognitionMode { Accurate, Fast, Economy, FieldsOnly }
-public enum SearchPreference { Automatic, Web, ImageReference }
+public enum SearchPreference { Gemini, Grounded }
 public enum GroupTaskState { Idle, Queued, Running, Completed, Failed, Canceled }
 public enum LearningMode { ConfirmRules, Automatic, Manual }
 public sealed record CropRect(double X, double Y, double Width, double Height);
@@ -63,7 +63,7 @@ public class PhotoReference : Observable
         Asset=asset; AssetId=asset.Id; Asset.PropertyChanged+=AssetChanged;
         CapturedAt=asset.CapturedAt ?? CapturedAt; AssetChanged(this,new(""));
     }
-    private void AssetChanged(object? sender,PropertyChangedEventArgs e) { CapturedAt=Asset?.CapturedAt ?? CapturedAt; Notify(nameof(ThumbnailUri)); Notify(nameof(PreviewPath)); Notify(nameof(Caption)); }
+    private void AssetChanged(object? sender,PropertyChangedEventArgs e) { CapturedAt=Asset?.CapturedAt ?? CapturedAt;if(e.PropertyName==nameof(ImageAsset.CapturedAt))return; Notify(nameof(ThumbnailUri)); Notify(nameof(PreviewPath)); Notify(nameof(Caption)); }
 }
 public sealed class Photo : PhotoReference
 {
@@ -156,6 +156,7 @@ public sealed class PhotoGroup : Observable
     public VerificationReport? Verification { get; set; }
     public List<VerificationReport> VerificationHistory { get; set; } = [];
     public CarIdentity Confirmed { get; set; } = new();
+    public CarIdentity? NamingOriginalIdentity {get;set;}
     public string FolderName { get; set; } = "";
     public string TargetBrand { get; set; } = "";
     public string AppliedRule { get; set; } = "";
@@ -185,8 +186,7 @@ public sealed class AppSettings
     public string ArchiveRoot { get; set; } = "";
     public string Model { get; set; } = "gemini-3.8-flash";
     public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;
-    public SearchPreference Search { get; set; } = SearchPreference.Automatic;
-    public string ImageSearchVerifiedModel { get; set; } = "";
+    public SearchPreference Search { get; set; } = SearchPreference.Gemini;
     public LearningMode Learning { get; set; } = LearningMode.ConfirmRules;
     public int BatchCallLimit { get; set; } = 100;
     public int GroupGapSeconds { get; set; } = 90;

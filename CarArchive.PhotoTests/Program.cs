@@ -6,6 +6,13 @@ using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
+if(args.Length>=2&&args[0]=="--benchmark-exif") {
+ var files=Directory.EnumerateFiles(args[1]).Where(f=>PhotoService.Extensions.Contains(Path.GetExtension(f))).Take(500).ToArray();var photos=files.Select(f=>PhotoService.Register(f).Reference).ToArray();var bench=new PhotoService(Path.Combine(Path.GetTempPath(),"CarArchive-exif-benchmark-cache"));
+ var signatures=files.Select(f=>(new FileInfo(f).Length,File.GetLastWriteTimeUtc(f))).ToArray();
+ var clock=System.Diagnostics.Stopwatch.StartNew();await Parallel.ForEachAsync(photos,new ParallelOptions{MaxDegreeOfParallelism=8},async(p,ct)=>await bench.ReadMetadataAsync(p,ct));clock.Stop();
+ Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{Count=photos.Length,Seconds=clock.Elapsed.TotalSeconds,FilesPerSecond=photos.Length/clock.Elapsed.TotalSeconds,WithTimestamp=photos.Count(p=>p.CapturedAt.HasValue),Errors=photos.Count(p=>p.Error.Length>0),OriginalCopies=0,ApiCalls=0,OriginalMetadataUnchanged=files.Select((f,i)=>new FileInfo(f).Length==signatures[i].Length && File.GetLastWriteTimeUtc(f)==signatures[i].Item2).All(x=>x),Formats=files.GroupBy(f=>Path.GetExtension(f)).ToDictionary(g=>g.Key,g=>g.Count())}));return;
+}
+
 var root=Path.Combine(Path.GetTempPath(),"CarArchive-image-tests-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
 void Check(bool value,string text) { if(!value) throw new Exception(text); }
 async Task<byte[]> FixtureAsync(bool rotate)

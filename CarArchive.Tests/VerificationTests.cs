@@ -40,7 +40,7 @@ static class VerificationTests
                 var result=n==1?Research():Compare();result.ConfigVerified=true;return Envelope(result,n==1,n==1);
             });
             using var http=new HttpClient(handler);var service=new GeminiService(http,images,()=>"fake",()=>{});
-            var report=await service.VerifyAsync([crop,new Photo()],new() { Mode=RecognitionMode.Accurate },Candidate(),"核对中改",default);
+            var report=await service.VerifyAsync([crop,new Photo()],new() { Search=SearchPreference.Grounded,Mode=RecognitionMode.Accurate },Candidate(),"核对中改",default);
             Check(handler.Count==2 && report.Status==VerificationStatus.Passed && !report.ConfigVerified && report.StatusText.Contains("配置未证实"));
             Check(report.InputTokens==200 && report.OutputTokens==80 && report.ThinkingTokens==20 && report.SearchCount==1);
             Check(images.Calls.Count==1 && ReferenceEquals(images.Calls[0].Photo,crop) && images.Calls[0].Edge==1280);
@@ -50,7 +50,7 @@ static class VerificationTests
             foreach(var (match,expected) in new[]{("contradiction",VerificationStatus.Failed),("not_visible",VerificationStatus.Insufficient)})
             {
                 using var h=new Handler((_,n,_)=>Envelope(n==1?Research():Compare(match,"research a hidden badge on this specific car"),n==1,n==1));
-                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
                 Check(report.Status==expected && h.Count==2);
             }
         });
@@ -59,7 +59,7 @@ static class VerificationTests
             for(var scenario=0;scenario<3;scenario++)
             {
                 using var h=new Handler((_,n,_)=> { var result=n==1?Research(scenario==0?"https://fake.example/unsupported":Url):Compare();if(scenario==2 && n==1) result.Conflict=true;return Envelope(result,n==1 && scenario!=1,n==1); });
-                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
                 Check(report.Status==(scenario==1?VerificationStatus.Incomplete:VerificationStatus.Insufficient) && h.Count==2);
             }
         });
@@ -70,13 +70,13 @@ static class VerificationTests
                 if(n==3) { Check(json.RootElement.TryGetProperty("tools",out _));var final=Compare();final.Features=Features();return Envelope(final); }
                 return Envelope(n==1?Research("https://fake.example/uncited"):Compare("match","official model facelift headlamp difference"),n==1,n==1);
             });
-            using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+            using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
             Check(h.Count==3 && report.Status==VerificationStatus.Passed && report.Stages.Count==3);
         });
         test("Deep verification: stage error retains original candidate, completed evidence and usage without retry",async ()=>
         {
             using var h=new Handler((_,n,_)=>n==1?Envelope(Research()):new(HttpStatusCode.TooManyRequests) { Content=new StringContent("secret raw server output") });
-            using var http=new HttpClient(h);var candidate=Candidate();var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),candidate,"",default);
+            using var http=new HttpClient(h);var candidate=Candidate();var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},candidate,"",default);
             Check(h.Count==2 && report.Status==VerificationStatus.Incomplete && report.InputTokens==100 && report.Sources.Count==1);
             Check(candidate.Variant=="Series 500 Coupe" && !report.Error.Contains("secret"));
         });
@@ -88,7 +88,7 @@ static class VerificationTests
                 if(n==3) result.Features=Features();
                 return Envelope(result,false,false);
             });
-            using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+            using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
             Check(h.Count==3 && report.Status==VerificationStatus.Incomplete);
         });
         test("Deep verification: canceled and truncated stages retain prior evidence and truncation token usage",async ()=>
@@ -96,7 +96,7 @@ static class VerificationTests
             foreach(var canceled in new[]{true,false})
             {
                 using var h=new Handler((_,n,_)=> { if(n==1) return Envelope(Research());if(canceled) throw new OperationCanceledException();return Envelope(Compare(),false,false,true); });
-                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
                 Check(report.Status==(canceled?VerificationStatus.Canceled:VerificationStatus.Incomplete) && report.Stages.Count==2);
                 Check(report.InputTokens==(canceled?100:200) && report.Sources.Count==1);
             }
@@ -104,7 +104,7 @@ static class VerificationTests
         test("Deep verification: absent candidate and unsupported image-search setting issue no API request",async ()=>
         {
             using var h=new Handler((_,_,_)=>throw new Exception("Unexpected request"));using var http=new HttpClient(h);var backend=new GeminiService(http,new Images(),()=>"fake",()=>{});
-            foreach(var (candidate,settings) in new[]{(new CarIdentity(),new AppSettings()),(Candidate(),new AppSettings { Search=SearchPreference.ImageReference })})
+            foreach(var (candidate,settings) in new[]{(new CarIdentity(),new AppSettings {Search=SearchPreference.Grounded}),(Candidate(),new AppSettings { Search=(SearchPreference)2 })})
             { var thrown=false;try { await backend.VerifyAsync([new()],settings,candidate,"",default); } catch(InvalidOperationException) { thrown=true; }Check(thrown && h.Count==0); }
         });
         test("Deep verification: null or duplicate feature payloads and contradictory identity cannot produce a pass",async ()=>
@@ -120,7 +120,7 @@ static class VerificationTests
                     if(n==2 && scenario==4) { result.Identity.Series="Corrected car";result.Checks[0].Match="contradiction"; }
                     return Envelope(result,n==1,n==1);
                 });
-                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new(),Candidate(),"",default);
+                using var http=new HttpClient(h);var report=await new GeminiService(http,new Images(),()=>"fake",()=>{}).VerifyAsync([new()],new() {Search=SearchPreference.Grounded},Candidate(),"",default);
                 Check(report.Status==(scenario==0?VerificationStatus.Incomplete:scenario==4?VerificationStatus.Failed:VerificationStatus.Insufficient));
             }
         });
@@ -136,7 +136,7 @@ static class VerificationTests
                     Check(!text.Contains("NamingGuide") && !text.Contains("BrandFolders"));
                     return Envelope(n==1?Research():Compare(),n==1,n==1);
                 });
-                using var http=new HttpClient(h);var result=await new GeminiService(http,new Images(),()=>"fake",()=>{}).RecognizeAsync(Enumerable.Range(0,12).Select(_=>new Photo()).ToArray(),new() { Mode=mode },false,default);
+                using var http=new HttpClient(h);var result=await new GeminiService(http,new Images(),()=>"fake",()=>{}).RecognizeAsync(Enumerable.Range(0,12).Select(_=>new Photo()).ToArray(),new() { Search=SearchPreference.Grounded,Mode=mode },false,default);
                 Check(h.Count==(mode==RecognitionMode.Accurate?2:1));Check(mode!=RecognitionMode.Accurate || result.Verification?.Status==VerificationStatus.Passed);
             }
         });

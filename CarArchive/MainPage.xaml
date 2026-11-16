@@ -79,7 +79,7 @@
     <CommandBar x:Name="AnalysisBar" Grid.Row="2" Height="40" HorizontalAlignment="Center" DefaultLabelPosition="Right" ClosedDisplayMode="Compact" Background="Transparent">
      <AppBarToggleButton x:Name="CropToggle" Icon="Crop" Label="框选目标" Click="CropToggle_Click"/>
    <AppBarButton Icon="Find" Label="联网识别" Click="Recognize_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
-   <AppBarButton Icon="Copy" Label="深入查证" Click="Deep_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
+   <AppBarButton Icon="Copy" Label="复制框选图片" Click="Deep_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/>
    <AppBarButton Icon="Copy" Label="复制验证提示词" Click="CopyVerificationPrompt_Click"/>
    <AppBarButton Icon="Cancel" Label="取消本组" Click="Cancel_Click" IsEnabled="{x:Bind VM.SelectedWorking,Mode=OneWay}"/>
      <AppBarButton Icon="Clear" Label="清除框选" Click="ClearCrop_Click"/>
@@ -99,7 +99,7 @@
     <InfoBar x:Name="VerificationBanner" Grid.Row="0" IsOpen="True" IsClosable="False"/>
     <ScrollViewer x:Name="EditorScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="10,0,10,0">
      <StackPanel Spacing="8">
-      <TextBlock x:Name="VerificationText" Text="尚未识别 · 可手动填写" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="VerificationText" Text="尚未识别 · 可手动填写" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/><Button Grid.Column="1" Content="粘贴 JSON" Click="PasteIdentity_Click" IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}"/></Grid>
       <ContentControl IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}" HorizontalContentAlignment="Stretch">
        <StackPanel Spacing="8">
         <Grid ColumnSpacing="8" RowSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>

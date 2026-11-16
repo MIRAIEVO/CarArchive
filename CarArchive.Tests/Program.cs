@@ -234,13 +234,14 @@ Test("Requests include real search tool, image data, revision and no stored inte
         Assert(json.RootElement.GetProperty("tools")[0].GetProperty("type").GetString()=="google_search"); Assert(body.Contains("image/jpeg")); seen=true;
         return new(HttpStatusCode.OK) { Content=new StringContent("{\"steps\":[{\"type\":\"model_output\",\"content\":[{\"type\":\"text\",\"text\":\"{\\\"identity\\\":{\\\"brand\\\":\\\"Audi\\\"}}\"}]}]}") };
     }));
-    var service=new GeminiService(client,new FakeImages(),()=>"test-key",()=>{}); var result=await service.RecognizeAsync([new Photo()],new(),false,default); Assert(seen && !result.Grounded);
+    var service=new GeminiService(client,new FakeImages(),()=>"test-key",()=>{}); var result=await service.RecognizeAsync([new Photo()],new() {Search=SearchPreference.Grounded},false,default); Assert(seen && !result.Grounded);
 });
 PhotoLifecycleTests.Register(Test);
 V2Tests.Register(Test);
 NamingTests.Register(Test);
 BuiltInNamingTests.Register(Test);
 UploadSelectionTests.Register(Test);
+V121Tests.Register(Test);
 CategorySearchTests.Register(Test);
 UsabilityTests.Register(Test);
 InteractionTests.Register(Test);

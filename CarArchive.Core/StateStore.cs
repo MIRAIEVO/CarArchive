@@ -36,6 +36,7 @@ public sealed partial class StateStore : IStateStore, IPhotoOperationStore
             using var db=Open(); using var cmd=db.CreateCommand(); cmd.CommandText="SELECT json FROM workspace WHERE id=1";
             var json=cmd.ExecuteScalar() as string;
             var state=json is null?new WorkspaceState { SchemaVersion=2, WorkspaceId=File.Exists(Path.Combine(directory,"workspace-id.txt"))?File.ReadAllText(Path.Combine(directory,"workspace-id.txt")).Trim():Guid.NewGuid().ToString("N") }:JsonSerializer.Deserialize<WorkspaceState>(json,Json) ?? throw new InvalidDataException("本地数据库无法读取。请保留文件并恢复备份。");
+            if(!Enum.IsDefined(state.Settings.Search))state.Settings.Search=SearchPreference.Gemini;
             // Additive 1.3 fields still share the v2 tables. Back up once before saving the upgraded header.
             using var oldHeader=json is null?null:JsonDocument.Parse(json);
             if(oldHeader is not null && !oldHeader.RootElement.TryGetProperty("NamingSamples",out _))

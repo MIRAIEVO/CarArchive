@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using CarArchive.Core;
 using CarArchive.Services;
 using Microsoft.UI.Xaml;
@@ -17,35 +17,28 @@ public sealed partial class MainPage
         try
         {
             var key=new PasswordBox { Header="Gemini API Key（Windows 当前用户加密保存）",Password=VM.Credentials.Read() };
-            var model=new TextBox { Header="模型 ID",Text=VM.State.Settings.Model };
-            var search=new ComboBox { Header="检索方式（只使用当前 Gemini API Key）",HorizontalAlignment=HorizontalAlignment.Stretch };
-            search.Items.Add(new ComboBoxItem { Content="自动：优先已验证的图片资料能力，否则普通搜索" });
-            search.Items.Add(new ComboBoxItem { Content="普通 Google 搜索" });
-            var nativeImageItem=new ComboBoxItem { Content="Gemini 图片资料检索（非 Lens）",IsEnabled=VM.State.Settings.ImageSearchVerifiedModel==model.Text };
-            search.Items.Add(nativeImageItem);search.Items.Add(new ComboBoxItem { Content="Google Lens 以图搜图：当前 Gemini 接口不提供",IsEnabled=false });
-            search.SelectedIndex=(int)VM.State.Settings.Search;
-            var checkImage=new Button { Content="检查当前模型的图片资料检索能力",HorizontalAlignment=HorizontalAlignment.Stretch };
-            model.TextChanged+=(_,_)=> { nativeImageItem.IsEnabled=VM.State.Settings.ImageSearchVerifiedModel==model.Text.Trim();if(!nativeImageItem.IsEnabled && search.SelectedIndex==2) search.SelectedIndex=0; };
-            var budget=new NumberBox { Header="每批调用次数上限（含能力检查与查证）",Minimum=1,Maximum=10000,Value=VM.State.Settings.BatchCallLimit,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact };
-            var check=new Button { Content="保存并检查多图 + Google Search 能力",HorizontalAlignment=HorizontalAlignment.Stretch };
+            var model=new ComboBox { Header="模型 ID（可选择或自行输入）",IsEditable=true,ItemsSource=ModelCatalog.BuiltIn.Append(VM.State.Settings.Model).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),SelectedItem=VM.State.Settings.Model,Text=VM.State.Settings.Model,HorizontalAlignment=HorizontalAlignment.Stretch };
+            var search=new ComboBox {Header="识别方式",HorizontalAlignment=HorizontalAlignment.Stretch,ItemsSource=new[]{"Gemini（默认，不联网检索）","Gemini + Google Search grounded（联网核实）"},SelectedIndex=VM.State.Settings.Search==SearchPreference.Grounded?1:0};
+            var budget=new NumberBox { Header="每批生成请求上限",Minimum=1,Maximum=10000,Value=VM.State.Settings.BatchCallLimit,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact };
+            var check=new Button { Content="读取账号可用模型（不生成内容）",HorizontalAlignment=HorizontalAlignment.Stretch };
             var reset=new Button { Content="开始新批次（重置调用计数）",HorizontalAlignment=HorizontalAlignment.Stretch };
-            var checkStatus=Paragraph("检查会提交两张合成测试图并实际联网，可能计费用量。不会发送你的照片。\n只保存 Key 不会调用 API。识别时派生图片去除 EXIF，原图保持不变。");
+            var checkStatus=Paragraph("读取模型清单不发送照片、不生成内容。Gemini 使用图像与已有知识；grounded 启用 Google Search，实际来源以接口引用为准。模型可见不代表当前账号有足够额度。");
             var links=new StackPanel { Spacing=6 };
             var panel=new StackPanel { Spacing=12,MinWidth=410,MaxWidth=560 };
             var tokenPolicy=new ToggleSwitch { Header="识别提示策略",OffContent="兼容提示",OnContent="优化提示",IsOn=VM.State.Settings.OptimizeRecognitionTokens };
-            var advanced=new StackPanel { Spacing=8 };advanced.Children.Add(tokenPolicy);advanced.Children.Add(Paragraph("优化提示保留原有图片、视角和思考预算；可随时切回兼容提示。"));foreach(var element in new FrameworkElement[]{checkImage,check,checkStatus,links}) advanced.Children.Add(element);
-            var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{key,model,search,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。深入查证默认两次，必要时最多三次。"),reset,new Expander { Header="高级 · 能力检查（会实际调用 API）",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
+            var advanced=new StackPanel { Spacing=8 };advanced.Children.Add(tokenPolicy);advanced.Children.Add(Paragraph("优化提示保留原有图片、视角和思考预算；可随时切回兼容提示。"));foreach(var element in new FrameworkElement[]{check,checkStatus}) advanced.Children.Add(element);
+            var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{key,model,search,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。复制框选图片不调用 API。"),reset,new Expander { Header="模型清单与提示设置",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
             var openLearning=new Button { Content="管理学习模式与规则" };var openGuide=new Button { Content="查看／更新车型指南" };
             var naming=new StackPanel { Spacing=8 };naming.Children.Add(Paragraph("全部在本机学习，不发送历史名称、规则或目录清单至 API。"));naming.Children.Add(openLearning);naming.Children.Add(openGuide);
             var openData=new Button { Content="打开本版本数据目录" };var importData=new Button { Content="导入旧版本数据…" };var clearCache=new Button { Content="清理可重建缓存" };var logs=new Button { Content="打开崩溃日志" };
             var openTrash=new Button { Content="打开回收站" };openTrash.Click+=OpenRecycleBin_Click;
-            var maintenanceStatus=Paragraph("");
+            var maintenanceStatus=Paragraph("");var exportNaming=new Button{Content="导出记住名称日志 CSV（最近 1000 条）"};naming.Children.Add(exportNaming);exportNaming.Click+=async(_,_)=>{try{await ExportNamingLogAsync();}catch(Exception error){maintenanceStatus.Text=error.Message;}};
             var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,openTrash,maintenanceStatus}) maintenance.Children.Add(element);
             panel.Children.Add(new Expander { Header="识别与费用",Content=recognition,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
             panel.Children.Add(new Expander { Header="命名学习",Content=naming,HorizontalAlignment=HorizontalAlignment.Stretch });
             panel.Children.Add(new Expander { Header="数据与维护",Content=maintenance,HorizontalAlignment=HorizontalAlignment.Stretch });
             panel.Children.Add(new Expander { Header="快捷键与确认",Content=BuildInteractionSettingsPanel(),HorizontalAlignment=HorizontalAlignment.Stretch });
-            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",Content=new ScrollViewer { Content=panel,MaxHeight=620 },PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
+            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=new ScrollViewer { Content=panel,MaxHeight=620 },PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
             Action? afterClose=null;
             openLearning.Click+=(_,_)=> { afterClose=()=>Rules_Click(sender,e);dialog.Hide(); };
             openGuide.Click+=(_,_)=> { afterClose=()=>NamingGuide_Click(sender,e);dialog.Hide(); };
@@ -60,38 +53,9 @@ public sealed partial class MainPage
                 if(double.IsNaN(budget.Value)) throw new ArgumentException("请填写有效的调用上限。");
                 VM.Credentials.Save(key.Password); VM.State.Settings.Model=model.Text.Trim();
                 VM.State.Settings.BatchCallLimit=(int)budget.Value;VM.State.Settings.OptimizeRecognitionTokens=tokenPolicy.IsOn;
-                VM.State.Settings.Search=(SearchPreference)Math.Clamp(search.SelectedIndex,0,2);VM.SaveHeader();
+                VM.State.Settings.Search=search.SelectedIndex==1?SearchPreference.Grounded:SearchPreference.Gemini;VM.SaveHeader();
             }
-            check.Click+=async (_,_)=>
-            {
-                check.IsEnabled=false;checkImage.IsEnabled=false; reset.IsEnabled=false; dialog.IsPrimaryButtonEnabled=false; VM.Busy=true;
-                try
-                {
-                    SaveSettings(); checkStatus.Text="正在验证账号访问权限、多图输入与实际搜索记录…";
-                    var sample=await PhotoService.ConnectivityImageAsync();var settings=VM.CaptureSettings();var result=await VM.Tasks.WithRecognitionSlotAsync(ct=>VM.Gemini.CheckAsync(settings,sample,ct),checkCts.Token);
-                    checkStatus.Text=result.Grounded ? $"检查通过：多图输入、Google Search 与来源引用均已返回。\n输入 {result.InputTokens} / 输出 {result.OutputTokens} tokens。" : "多图请求已返回，但缺少实际搜索或来源记录。请更换模型或重试。";
-                    links.Children.Clear(); foreach(var source in result.Sources) links.Children.Add(new HyperlinkButton { Content=source.Title,NavigateUri=new Uri(source.Url),Padding=new Thickness(0) });
-                    if(result.SearchSuggestionsHtml.Length>0)
-                    {
-                        var web=new WebView2 { Height=160 }; links.Children.Add(web); await web.EnsureCoreWebView2Async(); web.CoreWebView2.Settings.IsScriptEnabled=false; web.NavigateToString(result.SearchSuggestionsHtml);
-                    }
-                }
-                catch(OperationCanceledException) { checkStatus.Text="检查已取消。"; }
-                catch(Exception error) { checkStatus.Text=error.Message; }
-                finally { check.IsEnabled=true;checkImage.IsEnabled=true; reset.IsEnabled=true; dialog.IsPrimaryButtonEnabled=true; VM.Busy=false; }
-            };
-            checkImage.Click+=async (_,_)=>
-            {
-                check.IsEnabled=false;checkImage.IsEnabled=false;dialog.IsPrimaryButtonEnabled=false;
-                try {
-                    SaveSettings();var probe=JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(VM.State.Settings))!;probe.Search=SearchPreference.ImageReference;probe.ImageSearchVerifiedModel="";
-                    checkStatus.Text="正在用两张合成图检查当前模型能否返回图片资料检索及纯文本字段…不会更换模型。";
-                    var sample=await PhotoService.ConnectivityImageAsync();var result=await VM.Tasks.WithRecognitionSlotAsync(ct=>VM.Gemini.CheckAsync(probe,sample,ct),checkCts.Token);
-                    if(result.Grounded && result.ActualSearch.Contains("图片资料")) { VM.State.Settings.ImageSearchVerifiedModel=probe.Model;nativeImageItem.IsEnabled=true;VM.SaveHeader();checkStatus.Text="检查通过，可选择 Gemini 图片资料检索。此能力不是 Lens 以图搜图。"; }
-                    else { checkStatus.Text="当前模型未返回可验证的图片检索结果。请使用自动或普通 Google 搜索。"; }
-                } catch(Exception error) { checkStatus.Text="图片能力未通过检查："+error.Message+"\n没有自动重试或切换模型。"; }
-                finally { check.IsEnabled=true;checkImage.IsEnabled=true;dialog.IsPrimaryButtonEnabled=true; }
-            };
+            check.Click+=async (_,_)=> {check.IsEnabled=false;try {using var client=new HttpClient{Timeout=TimeSpan.FromSeconds(30)};var current=model.Text;var available=await ModelCatalog.FetchAsync(client,key.Password,checkCts.Token);model.ItemsSource=ModelCatalog.BuiltIn.Concat(available).Append(current).Where(id=>!string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();model.Text=current;checkStatus.Text=$"已读取 {available.Count} 个模型；未发送照片，未生成内容。";}catch(Exception error){checkStatus.Text=error.Message;}finally{check.IsEnabled=true;} };
             reset.Click+=(_,_)=> { VM.State.BatchCalls=0; VM.State.BatchId=Guid.NewGuid().ToString("N"); VM.Save(); checkStatus.Text="已开始新批次，调用计数归零。"; };
             dialog.PrimaryButtonClick+=(_,args)=> { try { SaveSettings(); VM.Status="设置已保存。"; } catch(Exception error) { args.Cancel=true; checkStatus.Text=error.Message; } };
             dialog.Closing+=(_,_)=>checkCts.Cancel();

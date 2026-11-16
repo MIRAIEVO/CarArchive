@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -23,15 +23,16 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         """;
     public async Task<RecognitionResult> RecognizeAsync(IReadOnlyList<Photo> photos, AppSettings settings, bool verifyAgain, CancellationToken ct)
     {
+        ValidateSearch(settings);
         if(string.IsNullOrWhiteSpace(apiKey())) throw new InvalidOperationException("请在设置中保存 Gemini API Key。");
         var usable = photos.Where(p => !p.Excluded && p.Error.Length == 0).ToList();
         if (usable.Count == 0) throw new InvalidOperationException("没有可识别的照片，请检查解码错误或排除状态。");
         var minimal=settings.Mode==RecognitionMode.FieldsOnly;
-        if(settings.Search==SearchPreference.ImageReference && settings.ImageSearchVerifiedModel!=settings.Model) throw new InvalidOperationException("当前模型尚未通过图片资料检索检查。请选择自动或普通 Google 搜索，或在设置中检查图片能力。真正的 Lens 反向图片搜索不属于此接口能力。");
         // verifyAgain is retained for older backend consumers. Deep checks require an explicit candidate via VerifyAsync.
         var count = ViewCount(settings.Mode);
         var selected = settings.ExplicitUploadSelection ? usable : usable[0].Crop is not null ? new List<Photo> { usable[0] } : SelectViews(usable, count);
         var instructions=settings.OptimizeRecognitionTokens?TokenOptimization.RecognitionPrompt(settings.Mode):minimal?MinimalInstructions:Instructions+ProfileInstructions(settings.Mode);
+        if(settings.Search==SearchPreference.Gemini) instructions=OfflineInstructions(settings.Mode);
         var input = new List<object> { new { type = "text", text = instructions } };
         foreach (var photo in selected)
         {
@@ -41,15 +42,17 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         }
         using var document = await SendAsync(settings, input, true, minimal?FieldsSchema():IdentitySchema(settings.Mode==RecognitionMode.Accurate), ct,minimal);
         var result=ParseRecognition(document.RootElement, settings.Model);
+        if(settings.Search==SearchPreference.Gemini){result.ActualSearch="Gemini（未启用 Google Search）";result.SearchCount=0;result.Queries.Clear();result.Sources.Clear();}
         if(settings.Mode==RecognitionMode.Accurate)
         {
             var report=new VerificationReport { Candidate=result.Identity.Clone(),Features=result.Features };
-            report.Stages.Add(new() { Name="联网识别与特征检索",SearchEnabled=true,Result=CloneStageResult(result) });
+            report.Stages.Add(new() { Name=settings.Search==SearchPreference.Grounded?"联网识别与特征检索":"Gemini 图像识别与特征推理",SearchEnabled=settings.Search==SearchPreference.Grounded,Result=CloneStageResult(result) });
             result.Verification=await CompareAsync(photos,settings,report,ct);
             // Keep initial identity intact; comparison corrections are adopted explicitly by the user.
         }
         return result;
     }
+    private static string OfflineInstructions(RecognitionMode mode)=>"Identify the user-selected car from the provided image(s) and existing knowledge. Google Search is disabled: do not claim to have searched or verified online, and do not fabricate references. Unknown identity fields must be empty strings. Return the requested JSON only. Brand is the manufacturer/division; series is the family; variant is the complete English marketing/model designation starting with the series, including verified body-style, trim, package and special edition words. Use the complete known series if exact trim is not supported. officialName is the full known official marketing name, or empty. body is informational only. generation is an ordinal (1st, 2nd...), code is the common chassis code, phase describes facelift, package describes verified equipment, productionYears is YYYY-YYYY or empty. Do not infer performance trim from badges or body kits; distinguish AMG from AMG-Line. Never generate a folder name. "+(mode==RecognitionMode.FieldsOnly?"Return only identity fields.":"Briefly report visible evidence and uncertainty. In accurate mode list discriminating features and distinguish visible facts from knowledge-based hypotheses.");
     public static List<Photo> SelectViews(List<Photo> photos, int count)
     {
         if (photos.Count <= count) return photos;
@@ -71,15 +74,11 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         reserveCall();
         var body = new Dictionary<string, object> { ["model"] = settings.Model, ["input"] = input, ["store"] = false,
             ["response_format"] = new { type = "text", mime_type = "application/json", schema } };
-        if (search)
-        {
-            var useImage=settings.Search==SearchPreference.ImageReference && (allowImageProbe || settings.ImageSearchVerifiedModel==settings.Model) || settings.Search==SearchPreference.Automatic && settings.ImageSearchVerifiedModel==settings.Model;
-            body["tools"]=useImage?new object[]{ new { type="google_search",search_types=new[]{"image_search"} } }:new object[]{new { type="google_search" }};
-        }
+        if(search && settings.Search==SearchPreference.Grounded) body["tools"]=new object[]{new {type="google_search"}};
         var generation=new Dictionary<string,object> { ["max_output_tokens"]=!minimal && settings.Mode==RecognitionMode.Accurate?8192:4096 };
         // Interactions generation_config uses the provider's existing supported low/high thinking levels.
         // https://ai.google.dev/gemini-api/docs/interactions
-        if(settings.Model.StartsWith("gemini-3",StringComparison.OrdinalIgnoreCase)) generation["thinking_level"]=!minimal && settings.Mode==RecognitionMode.Accurate?"high":"low";
+        if(settings.Model.StartsWith("gemini-3",StringComparison.OrdinalIgnoreCase)||settings.Model.StartsWith("gemini-4",StringComparison.OrdinalIgnoreCase)) generation["thinking_level"]=!minimal && settings.Mode==RecognitionMode.Accurate?"high":"low";
         body["generation_config"]=generation;
         using var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl + "interactions") { Content = JsonContent.Create(body) };
         request.Headers.Add("x-goog-api-key", key); request.Headers.Add("Api-Revision", "2026-05-20");

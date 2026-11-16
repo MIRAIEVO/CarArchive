@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace CarArchive.Core;
@@ -20,7 +20,7 @@ public sealed class CrashJournal : IDisposable
         this.directory=directory;this.capacity=Math.Clamp(capacity,8,1024);pending=Path.Combine(directory,"session-pending.json");
         try
         {
-            Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(directory);PruneReports();
             if(File.Exists(pending))
             {
                 var previous=File.ReadAllText(pending);
@@ -68,8 +68,9 @@ public sealed class CrashJournal : IDisposable
         if(exception?.Length>24000) exception=exception[..24000];
         var path=Path.Combine(directory,"crash-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-"+Guid.NewGuid().ToString("N")[..6]+".json");
         NamingGuideStore.WriteAtomic(path,JsonSerializer.Serialize(new { At=DateTimeOffset.Now,Reason=reason,Exception=exception,Session=JsonSerializer.Deserialize<JsonElement>(recent) },new JsonSerializerOptions(StateStore.Json) { WriteIndented=true }),false);
-        foreach(var old in Directory.EnumerateFiles(directory,"crash-*.json").OrderByDescending(File.GetLastWriteTimeUtc).Skip(10)) File.Delete(old);
+        PruneReports();
     }
+    private void PruneReports() {foreach(var old in Directory.EnumerateFiles(directory,"crash-*.json").OrderByDescending(File.GetLastWriteTimeUtc).Skip(10)) File.Delete(old);}
     public void Complete()
     {
         lock(gate)

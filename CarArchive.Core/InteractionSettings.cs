@@ -5,7 +5,7 @@ public sealed record AppCommandDefinition(string Id,string Label,string Scope,Sh
 public static class InteractionSettings
 {
     public static readonly AppCommandDefinition[] Commands = [
-        new("recognize","联网识别","Global",new(82,1)), new("verify","深入查证","Global",new(82,5)),
+        new("recognize","联网识别","Global",new(82,1)), new("verify","复制框选图片","Global",new(82,5)),
         new("previous","上一组","Global",new(37,2),true), new("next","下一组","Global",new(39,2),true),
         new("archive","确认命名并移动","Global",new(13,1)), new("removeGroups","移除分组，保留照片","Groups",new(46,0)),
         new("removePhotos","移除选中图片，保留照片","Photos",new(46,0)), new("recycleGroups","删除组并回收源照片","Groups",new(46,5)),

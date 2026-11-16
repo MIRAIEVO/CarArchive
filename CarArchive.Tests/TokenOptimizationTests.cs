@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using CarArchive.Core;
 
@@ -125,7 +125,7 @@ static class TokenOptimizationTests
         using var http=new HttpClient(handler);
         var service=new GeminiService(http,images,()=>"intercepted-test-key",()=>reservations++);
         var photos=Enumerable.Range(0,8).Select(i=>new Photo { Path="synthetic-"+i+".jpg" }).ToArray();
-        var settings=new AppSettings { Mode=mode,Model="gemini-3.8-flash",OptimizeRecognitionTokens=optimized };
+        var settings=new AppSettings { Search=SearchPreference.Grounded, Mode=mode,Model="gemini-3.8-flash",OptimizeRecognitionTokens=optimized };
         var result=await service.RecognizeAsync(photos,settings,false,default);
         return new(bodies,images,reservations,result);
     }
@@ -144,7 +144,7 @@ static class TokenOptimizationTests
             return Reply(ComparisonJson(optimized,supplement),false,false,TrustedUrl);
         });
         using var http=new HttpClient(handler);var service=new GeminiService(http,images,()=>"intercepted-test-key",()=>reservations++);
-        var settings=new AppSettings { Mode=RecognitionMode.Accurate,Model="gemini-3.8-flash",OptimizeRecognitionTokens=optimized };
+        var settings=new AppSettings { Search=SearchPreference.Grounded, Mode=RecognitionMode.Accurate,Model="gemini-3.8-flash",OptimizeRecognitionTokens=optimized };
         var report=await service.VerifyAsync(Enumerable.Range(0,8).Select(i=>new Photo { Path="synthetic-"+i+".jpg" }).ToArray(),settings,Candidate(),"",default);
         return new(bodies,images,reservations,report);
     }
@@ -160,7 +160,7 @@ static class TokenOptimizationTests
             return Reply(SupplementJson(UntrustedUrl),true,false,TrustedUrl);
         });
         using var http=new HttpClient(handler);var service=new GeminiService(http,images,()=>"intercepted-test-key",()=>reservations++);
-        var report=await service.VerifyAsync([new Photo { Path="synthetic.jpg" }],new AppSettings { Mode=RecognitionMode.Economy,Model="gemini-3.8-flash",OptimizeRecognitionTokens=true },Candidate(),"",default);
+        var report=await service.VerifyAsync([new Photo { Path="synthetic.jpg" }],new AppSettings { Search=SearchPreference.Grounded, Mode=RecognitionMode.Economy,Model="gemini-3.8-flash",OptimizeRecognitionTokens=true },Candidate(),"",default);
         return new(bodies,images,reservations,report);
     }
 

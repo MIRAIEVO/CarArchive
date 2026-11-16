@@ -38,25 +38,17 @@ public sealed class PhotoService
     {
         try
         {
-            var date=await Task.Run(async ()=> {
-                await decoders.WaitAsync(ct);
-                try {
-                    var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,ct)); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
-                    foreach(var query in new[]{"/app1/ifd/exif/{ushort=36867}","/ifd/exif/{ushort=36867}"})
-                    {
-                        try {
-                            var properties=await decoder.BitmapProperties.GetPropertiesAsync([query]);
-                            if(properties.TryGetValue(query,out var value) && DateTime.TryParseExact(value.Value?.ToString()?.Trim('\0'),"yyyy:MM:dd HH:mm:ss",CultureInfo.InvariantCulture,DateTimeStyles.None,out var date))
-                                return (DateTimeOffset?)new DateTimeOffset(DateTime.SpecifyKind(date,DateTimeKind.Unspecified),TimeZoneInfo.Local.GetUtcOffset(date));
-                        } catch { }
-                    }
-                    return null;
-                } finally { decoders.Release(); }
-            },ct);
-            Publish(()=> { photo.CapturedAt=date;photo.Error=""; if(photo.Asset is not null) { photo.Asset.CapturedAt=date; photo.Asset.Refresh(); } });
+            var fast=await Task.Run(()=> {var handled=FastExifReader.TryRead(photo.Path,out var value);return (handled,value);},ct);
+            DateTimeOffset? date=fast.value;
+            if(!fast.handled) {
+                var file=await StorageFile.GetFileFromPathAsync(photo.Path);
+                var props=await file.Properties.RetrievePropertiesAsync(new[]{"System.Photo.DateTaken","System.Media.DateEncoded"});
+                foreach(var key in new[]{"System.Photo.DateTaken","System.Media.DateEncoded"}) if(props.TryGetValue(key,out var value)&&value is DateTimeOffset captured&&captured.Year>1900){date=captured;break;}
+            }
+            Publish(()=> { photo.CapturedAt=date; if(photo.Asset is not null) { photo.Asset.CapturedAt=date; photo.Asset.Notify(nameof(ImageAsset.CapturedAt)); } });
         }
         catch(OperationCanceledException) { throw; }
-        catch(Exception e) { SetError(photo,e); }
+        catch(Exception) { CrashJournal.Trace("Metadata.Unavailable"); }
     }
     private string Key(Photo photo,string kind)
     {
@@ -112,6 +104,14 @@ public sealed class PhotoService
         }
         catch(OperationCanceledException) { throw; }
         catch(Exception e) { if(key is not null) jobs.TryRemove(key,out _);SetError(photo,e); return ""; }
+    }
+    public Task WarmClipboardEncoderAsync()=>Task.Run(async()=>{await ConnectivityImageAsync();});
+    public async Task<byte[]> ClipboardJpegAsync(Photo photo,CancellationToken ct)
+    {
+        if(IsVideo(photo))return await AnalysisJpegAsync(photo,2048,ct);
+        var preview=await EnsurePreviewAsync(photo,ct);if(preview.Length==0)throw new IOException(photo.Error);
+        // The cached PNG contains the same complete oriented 2048px frame used by the old copy pipeline.
+        return await AnalysisJpegAsync(new Photo{Path=preview,OriginalPath=preview,Crop=photo.Crop},2048,ct);
     }
     public async Task<byte[]> AnalysisJpegAsync(Photo photo,int longestEdge,CancellationToken ct)
     {

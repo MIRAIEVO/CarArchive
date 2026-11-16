@@ -133,24 +133,12 @@ public sealed partial class MainViewModel : Observable
     {
         try
         {
-            var work=new Queue<Photo>(photos);
-            async Task Worker()
-            {
-                while(work.Count>0)
-                {
-                    ct.ThrowIfCancellationRequested(); var photo=work.Dequeue();
-                    await Images.EnsureThumbnailAsync(photo,ct);
-                    await Images.ReadMetadataAsync(photo,ct);
-                    if(photo.Asset is not null) SaveAsset(photo.Asset);
-                    foreach(var group in Groups.Where(g=>g.Photos.Any(p=>p.AssetId==photo.AssetId)))
-                    {
-                        if(!group.UserTouched && group.Suggestion is null && !group.IsWorking) group.State=photo.Error.Length>0?"无法解码 · 可检查原图":"待识别";
-                        group.Refresh();
-                    }
-                    PhotoUpdated?.Invoke(photo);
-                }
-            }
-            await Task.WhenAll(Worker(),Worker());
+            var started=System.Diagnostics.Stopwatch.StartNew();var metaWork=new Queue<Photo>(photos);var thumbWork=new Queue<Photo>(photos);
+            async Task MetadataWorker() {while(metaWork.Count>0){ct.ThrowIfCancellationRequested();var photo=metaWork.Dequeue();await Images.ReadMetadataAsync(photo,ct);if(photo.Asset is not null)SaveAsset(photo.Asset);}}
+            async Task ThumbnailWorker() {while(thumbWork.Count>0){ct.ThrowIfCancellationRequested();var photo=thumbWork.Dequeue();await Images.EnsureThumbnailAsync(photo,ct);if(photo.Asset is not null)SaveAsset(photo.Asset);foreach(var g in Groups.Where(g=>g.Photos.Any(p=>p.AssetId==photo.AssetId)))g.Refresh();PhotoUpdated?.Invoke(photo);}}
+            var thumbnails=Task.WhenAll(ThumbnailWorker(),ThumbnailWorker());
+            await Task.WhenAll(Enumerable.Range(0,8).Select(_=>MetadataWorker()));
+            var metadataSeconds=started.Elapsed.TotalSeconds;Status=$"拍摄时间读取完成：{photos.Count} 个，{photos.Count/Math.Max(.001,metadataSeconds):F0} 个／秒；缩略图继续在后台生成。";
             if(!singleGroup)
             {
                 var untouched=imported.Where(g=>Groups.Contains(g) && !g.UserTouched && !g.IsWorking && !g.Archived && g.Suggestion is null).ToList();
@@ -169,7 +157,8 @@ public sealed partial class MainViewModel : Observable
                     }
                 }
             }
-            Save(); Status=$"后台缩略图已完成：{photos.Count} 张；解码失败 {photos.Count(p=>p.Error.Length>0)} 张。";
+            foreach(var g in imported.Where(g=>Groups.Contains(g)&&!g.UserTouched&&!g.IsWorking&&g.Suggestion is null)){g.State="待识别";g.Refresh();}
+            Save();await thumbnails;Save(); Status=$"后台缩略图已完成：{photos.Count} 张；解码失败 {photos.Count(p=>p.Error.Length>0)} 张。";
         }
         catch(OperationCanceledException) { Status="后台图片准备已停止，已登记的分组保留。";Save(); }
         catch(Exception e) { Status="后台图片处理失败："+e.Message;Save(); }
@@ -200,13 +189,13 @@ public sealed partial class MainViewModel : Observable
         }
         var result=await Recognition.RecognizeAsync(photos,settings,false,ct);
         ct.ThrowIfCancellationRequested();await PrepareNamingGuideAsync();ct.ThrowIfCancellationRequested();
-        group.Suggestion=result;group.Confirmed=result.Identity.Clone();
+        group.Suggestion=result;group.Confirmed=result.Identity.Clone();group.NamingOriginalIdentity=result.Identity.Clone();
         if(!group.ManualTargetBrand) group.TargetBrand=Naming.ResolveBrand(group.Confirmed,State);
         if(result.Verification is not null) StoreVerification(group,result.Verification);
         else group.Verification=null;
         if(!group.ManualName) { group.PreviousFolderName=group.FolderName; GenerateName(group); }
         else group.AppliedRule="保留本次手动命名；识别字段已更新，可点击重新生成名称";
-        group.State=result.Verification?.StatusText ?? (result.Grounded?"已返回联网结果 · 待人工复核":"未完成查证 · 可人工复核");
+        group.State=settings.Search==SearchPreference.Gemini?"Gemini 识别完成 · 未启用联网核实":result.Verification?.StatusText ?? (result.Grounded?"已返回联网结果 · 待人工复核":"未完成查证 · 可人工复核");
         SaveGroup(group);
     }
     private static void StoreVerification(PhotoGroup group,VerificationReport report)
@@ -273,6 +262,7 @@ public sealed partial class MainViewModel : Observable
     public IReadOnlyList<LocalNamingRule> Learn(PhotoGroup group,bool explicitly)
     {
         if(State.Settings.Learning==LearningMode.Manual && !explicitly) return [];
+        if(explicitly) {var entry=new NamingClickLog{GroupId=group.Id,Original=(group.NamingOriginalIdentity??group.Suggestion?.Identity??group.Confirmed).Clone(),Confirmed=group.Confirmed.Clone(),AutomaticName=group.LastGeneratedName,FinalName=group.FolderName,Rule=group.AppliedRule};Enqueue(()=>Database.RecordNamingClick(entry));}
         Naming.Remember(group.Confirmed,group.FolderName,State);
         if(group.Confirmed.Brand.Length>0 && group.TargetBrand.Length>0 && NamingService.SameBrand(group.Confirmed.Brand,group.TargetBrand)) State.BrandFolders[group.Confirmed.Brand]=NamingService.SafeSegment(group.TargetBrand);
         var pending=LocalNamingLearning.RecordConfirmed(group,State,explicitly);SaveHeader();return pending;
@@ -313,6 +303,7 @@ public sealed partial class MainViewModel : Observable
         finally { if(group is not null) { ArchiveService.Reconcile(new WorkspaceState { Groups=[group] },await Task.Run(Store.Jobs));SaveGroup(group);GroupUpdated?.Invoke(group); } }
         Status=undo?"已撤销所选组，其他组的副本保持不变。":"中断操作已恢复。";
     }
+    public string ExportNamingClicksCsv()=>Database.ExportNamingClicksCsv();
     public void Close()
     {
         shutdown.Cancel();Tasks.CancelAll();Cancellation?.Cancel();Save();
