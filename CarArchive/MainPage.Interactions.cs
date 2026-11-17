@@ -97,9 +97,8 @@ public sealed partial class MainPage
     }
     private void UpdateMergeSelection()
     {
-        MergeSelectionButton.Visibility=Visibility.Collapsed;
         var groups=GroupList.SelectedItems.OfType<PhotoGroup>().ToArray();
-        if(groups.Length<2 || groups.Any(group=>!group.Editable)) return;
+        if(groups.Length<2 || groups.Any(group=>!group.Editable)) {MergeSelectionButton.Visibility=Visibility.Collapsed;return;}
         var last=lastMergeSelection is not null && groups.Contains(lastMergeSelection)?lastMergeSelection:groups.Last();
         double rowY,rowHeight;
         if(GroupList.ContainerFromItem(last) is ListViewItem item && item.ActualHeight>0)
@@ -111,9 +110,10 @@ public sealed partial class MainPage
         {
             rowY=mergeAnchorContentY-(mergeScroll?.VerticalOffset??0);rowHeight=mergeAnchorHeight;
         }
-        else return;
+        else {MergeSelectionButton.Visibility=Visibility.Collapsed;return;}
         var top=Math.Clamp(rowY+(rowHeight-30)/2,0,Math.Max(0,QueuePane.ActualHeight-30));
-        MergeSelectionButton.Margin=new Thickness(0,top,12,0);MergeSelectionButton.Visibility=Visibility.Visible;
+        MergeSelectionButton.Margin=new Thickness(0,top,12,0);
+        if(MergeSelectionButton.Visibility!=Visibility.Visible){MergeSelectionButton.Visibility=Visibility.Visible;UiMotion.Reveal(MergeSelectionButton,false);}
     }
     private void Group_ContextRequested(UIElement sender,ContextRequestedEventArgs args)
     {

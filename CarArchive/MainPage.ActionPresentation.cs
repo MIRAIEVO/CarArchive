@@ -10,7 +10,7 @@ public sealed partial class MainPage
     private void SetReversalPalette(Control button,bool enabled)
     {
         foreach(var key in new[]{"ButtonBackground","ButtonBackgroundPointerOver","ButtonBackgroundPressed","AppBarButtonBackgroundPointerOver","AppBarButtonBackgroundPressed"})
-            if(enabled)button.Resources[key]=Resources["ReversalBackgroundBrush"];else button.Resources.Remove(key);
+            if(enabled)button.Resources[key]=Resources[key.EndsWith("PointerOver",StringComparison.Ordinal)?"ReversalHoverBrush":key.EndsWith("Pressed",StringComparison.Ordinal)?"ReversalPressedBrush":"ReversalBackgroundBrush"];else button.Resources.Remove(key);
         foreach(var key in new[]{"ButtonBorderBrushPointerOver","ButtonBorderBrushPressed","AppBarButtonBorderBrushPointerOver","AppBarButtonBorderBrushPressed"})
             if(enabled)button.Resources[key]=Resources["ReversalBorderBrush"];else button.Resources.Remove(key);
     }
@@ -21,7 +21,7 @@ public sealed partial class MainPage
         var cancel=VM.Selected is {IsWorking:true,TaskKind:"联网识别"};
         RecognizeActionButton.Label=cancel?"取消识别":"Gemini识别";
         RecognizeActionButton.Icon=new SymbolIcon(cancel?Symbol.Cancel:Symbol.Find);
-        RecognizeActionButton.Style=(Style)Resources[cancel?"CancelRecognitionActionStyle":"RecognizeActionStyle"];
+        RecognizeActionButton.Style=(Style)Resources[cancel?"RecognitionCancelButtonStyle":"RecognitionButtonStyle"];
         SetReversalPalette(RecognizeActionButton,cancel);
         var undo=VM.Selected?.Archived==true;
         SetReversalPalette(ArchiveActionButton,undo);

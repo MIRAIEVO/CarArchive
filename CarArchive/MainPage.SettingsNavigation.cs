@@ -24,10 +24,10 @@ public sealed partial class MainPage
             var icon=(PathIcon)XamlReader.Load("<PathIcon xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" Data=\""+paths[i]+"\"/>");row.Children.Add(icon);
             var labels=new StackPanel {Spacing=4};labels.Children.Add(new TextBlock {Text=titles[i],FontWeight=Microsoft.UI.Text.FontWeights.SemiBold});labels.Children.Add(new TextBlock {Text=descriptions[i],FontSize=12,TextWrapping=TextWrapping.Wrap});Grid.SetColumn(labels,1);row.Children.Add(labels);
             var button=new Button {Content=row,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch,Padding=new Thickness(16),CornerRadius=new CornerRadius(10)};
-            button.Click+=(_,_)=> {content.Content=views[index];title.Text=titles[index];back.Visibility=Visibility.Visible;};home.Children.Add(button);
+            button.Click+=(_,_)=> {content.Content=views[index];UiMotion.Reveal(views[index]);title.Text=titles[index];back.Visibility=Visibility.Visible;};home.Children.Add(button);
         }
         var homeView=new ScrollViewer {Content=home,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
-        back.Click+=(_,_)=> {content.Content=homeView;title.Text="选择设置项目";back.Visibility=Visibility.Collapsed;};content.Content=homeView;return layout;
+        back.Click+=(_,_)=> {content.Content=homeView;UiMotion.Reveal(homeView);title.Text="选择设置项目";back.Visibility=Visibility.Collapsed;};content.Content=homeView;return layout;
     }
     private async void ClearRememberedNames_Click(object sender,RoutedEventArgs e)
     {

@@ -15,6 +15,7 @@
    <CornerRadius x:Key="ContentDialogCornerRadius">14</CornerRadius>
    <CornerRadius x:Key="FlyoutPresenterCornerRadius">12</CornerRadius>
    <CornerRadius x:Key="MenuFlyoutPresenterCornerRadius">12</CornerRadius>
+   <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}"><Setter Property="local:UiMotion.PressFeedback" Value="True"/></Style>
    <!-- Use a uniform Fluent stroke instead of the native elevation/underline gradients. -->
    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush"/>
    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="ControlStrokeColorDefaultBrush"/>

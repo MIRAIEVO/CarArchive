@@ -63,6 +63,7 @@ public sealed partial class MainPage
         ToolTipService.SetToolTip(ArchiveActionButton,"确认命名并移动 · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"archive")));
         DeleteGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removeGroups"));RemovePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removePhotos"));
         RecycleGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recycleGroups"));RecyclePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recyclePhotos"));
+        ToolTipService.SetToolTip(RecognizeActionButton,RecognizeActionButton.Label+" · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recognize")));
     }
     private FrameworkElement BuildInteractionSettingsPanel()
     {

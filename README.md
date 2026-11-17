@@ -1,8 +1,8 @@
-﻿# CarArchive 1.2.3 · 车影归档
+﻿# CarArchive 1.2.4 · 车影归档
 
 Windows 汽车照片分类工具：导入照片、调整分组、Gemini识别／网页辅助识别、复核命名后归档。采用 C#、.NET 10、WinUI 3、SQLite。
 
-- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.2.3/CarArchive-1.2.3-windows-x64.zip)
+- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.2.4/CarArchive-1.2.4-windows-x64.zip)
 - [使用说明](CarArchive/README.md) · [升级记录](CHANGELOG.md) · [版本说明](docs/releases/README.md)
 - [协作交接](docs/collaboration/HANDOFF.md) · [共同作者](AUTHORS.md)
 
@@ -16,6 +16,10 @@ Windows 汽车照片分类工具：导入照片、调整分组、Gemini识别／
 4. 确认并移动原图。文件经过校验，不静默覆盖，支持中断恢复及归档撤销。
 
 组间任务独立，默认两个识别任务和独立文件队列并行。复制组会创建独立原图副本；移除记录默认保留照片，回收源照片是单独的操作，且不用于已归档照片。
+
+## 1.2.4
+
+紧凑居中的固定识别按钮、加深红色与变浅的悬停反馈，以及遵循系统设置的轻快交互动效。详见 [更新说明](docs/releases/release-notes-v1.2.4.md)。
 
 ## 1.2.3
 

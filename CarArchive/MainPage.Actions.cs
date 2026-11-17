@@ -61,6 +61,8 @@ public sealed partial class MainPage
         if(liveIndex>=0 && liveIndex+1<args.Length) _=RunLiveVerificationAsync(args[liveIndex+1]);
         var abIndex=Array.IndexOf(args,"--verify-token-ab");
         if(abIndex>=0 && abIndex+1<args.Length) _=RunTokenAbVerificationAsync(args[abIndex+1]);
+        var v124Index=Array.IndexOf(args,"--verify-v124");
+        if(v124Index>=0 && v124Index+1<args.Length) _=RunV124VerificationAsync(args[v124Index+1]);
         var v123Index=Array.IndexOf(args,"--verify-v123");
         if(v123Index>=0 && v123Index+1<args.Length) _=RunV123VerificationAsync(args[v123Index+1]);
         var v121Index=Array.IndexOf(args,"--verify-v121");
@@ -139,7 +141,7 @@ public sealed partial class MainPage
         }
         finally { rendering = false;UpdateMergeSelection();RefreshActionPresentation(); }
         _ = RefreshCategoryCatalogAsync();
-        if(displayed!=previousGroup) FocusCurrentGroup();
+        if(displayed!=previousGroup) {FocusCurrentGroup();UiMotion.Reveal(VisualChild<ScrollViewer>(EditorPane));}
         _ = ShowPhotoAsync(currentPhoto);
     }
     private async Task ShowWidgetAsync(string html)
@@ -162,6 +164,8 @@ public sealed partial class MainPage
         }
         catch { SearchWidgetExpander.Visibility = Visibility.Collapsed; VM.Status = "搜索建议组件无法显示；来源链接仍可查看。请检查 WebView2 Runtime。"; }
     }
+    private string animatedPhotoId="";
+    private void RevealPhoto(Photo photo) {if(animatedPhotoId==photo.Id)return;animatedPhotoId=photo.Id;UiMotion.Reveal(MainImage,false);}
     private async Task ShowPhotoAsync(Photo? photo)
     {
         previewCancellation?.Cancel();previewCancellation?.Dispose();previewCancellation=new();var ct=previewCancellation.Token;
@@ -174,7 +178,7 @@ public sealed partial class MainPage
         try {if(!PhotoService.CurrentThumbnail(thumbnailPath) && File.Exists(photo.Path))
             thumbnailPath=await VM.Images.EnsureThumbnailAsync(photo,ct);} catch(OperationCanceledException){return;}
         if(version!=previewVersion || ct.IsCancellationRequested)return;
-        if(thumbnailPath.Length>0 && File.Exists(thumbnailPath)) { MainImage.Source=new BitmapImage(new Uri(thumbnailPath));EmptyPreview.Visibility=Visibility.Collapsed; }
+        if(thumbnailPath.Length>0 && File.Exists(thumbnailPath)) { MainImage.Source=new BitmapImage(new Uri(thumbnailPath));EmptyPreview.Visibility=Visibility.Collapsed;RevealPhoto(photo); }
         try
         {
             await Task.Delay(100,ct);
@@ -182,7 +186,7 @@ public sealed partial class MainPage
             var file = await StorageFile.GetFileFromPathAsync(preview); using var stream = await file.OpenReadAsync();
             var image = new BitmapImage(); await image.SetSourceAsync(stream);
             if (version != previewVersion) return;
-            MainImage.Source = image;
+            MainImage.Source = image;RevealPhoto(photo);
             if(PhotoService.IsVideo(photo)) { VideoPlayer.Source=Windows.Media.Core.MediaSource.CreateFromUri(new Uri(photo.Path));VideoPlayer.Visibility=Visibility.Visible;MainImage.Visibility=Visibility.Collapsed;if(VideoPlayer.MediaPlayer is { } player) { player.AutoPlay=false;player.PlaybackSession.Position=TimeSpan.FromSeconds(photo.VideoPositionSeconds); } }
             PhotoCaption.Text=photo.Caption; EmptyPreview.Visibility = Visibility.Collapsed; DrawSavedCrop();
             if(photo.Asset is not null) VM.SaveAsset(photo.Asset);
