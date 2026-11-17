@@ -68,7 +68,8 @@ public static class PortableData
     {
         await Task.Run(()=>Import(source,destination,ct),ct);
     }
-    private static void Import(string source,string destination,CancellationToken ct)
+    public static Task ImportConfigurationAsync(string source,string destination,CancellationToken ct=default) => Task.Run(()=>Import(source,destination,ct,true),ct);
+    private static void Import(string source,string destination,CancellationToken ct,bool configurationOnly=false)
     {
         source=System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(source));destination=System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(destination));
         RejectReparseDirectories(source);RejectReparseDirectories(destination);
@@ -87,7 +88,7 @@ public static class PortableData
             using(var input=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=System.IO.Path.Combine(source,"cararchive.db"),Mode=SqliteOpenMode.ReadOnly }.ToString()))
             using(var output=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=targetDb }.ToString()))
             { input.Open();output.Open();input.BackupDatabase(output);using var check=output.CreateCommand();check.CommandText="PRAGMA integrity_check";if((string?)check.ExecuteScalar()!="ok") throw new InvalidDataException("数据库完整性检查失败。"); }
-            foreach(var name in new[]{"cache","naming","crashes","managedphotos"})
+            foreach(var name in configurationOnly?new[]{"naming"}:new[]{"cache","naming","crashes","managedphotos"})
             {
                 var directory=System.IO.Path.Combine(source,name);if(!Directory.Exists(directory)) continue;
                 if(name=="managedphotos") ValidateManagedTree(directory);
@@ -109,8 +110,20 @@ public static class PortableData
                 using var input=File.OpenRead(key);using var output=File.OpenRead(target);
                 if(!SHA256.HashData(input).SequenceEqual(SHA256.HashData(output))) throw new IOException("API Key 复制校验失败。");
             }
-            RebaseDatabase(targetDb,source,destination,ReadWorkspaceId(source) ?? LegacyId(source));
-            File.WriteAllText(System.IO.Path.Combine(temporary,"workspace-id.txt"),ReadWorkspaceId(source) ?? LegacyId(source));
+            var workspaceId=ReadWorkspaceId(source) ?? LegacyId(source);
+            if(configurationOnly)
+            {
+                var store=new StateStore(temporary);var state=store.Load();
+                state.Groups.Clear();state.Assets.Clear();state.WorkspaceId=workspaceId=Guid.NewGuid().ToString("N");state.BatchCalls=0;state.BatchId=Guid.NewGuid().ToString("N");store.Save(state);
+                using var db=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=targetDb }.ToString());db.Open();
+                using var query=db.CreateCommand();query.CommandText="SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+                var tables=new List<string>();using(var reader=query.ExecuteReader())while(reader.Read())tables.Add(reader.GetString(0));
+                foreach(var table in tables.Where(t=>t is not ("workspace" or "naming_click_log"))) {query.CommandText="DELETE FROM \""+table.Replace("\"","\"\"")+"\"";query.ExecuteNonQuery();}
+                // Compact copied database so discarded group JSON and cached paths are absent from free pages.
+                query.CommandText="PRAGMA wal_checkpoint(TRUNCATE); VACUUM";query.ExecuteNonQuery();
+            }
+            else RebaseDatabase(targetDb,source,destination,workspaceId);
+            File.WriteAllText(System.IO.Path.Combine(temporary,"workspace-id.txt"),workspaceId);
             File.WriteAllText(System.IO.Path.Combine(temporary,"migration.json"),System.Text.Json.JsonSerializer.Serialize(new { Source=source,CompletedUtc=DateTime.UtcNow }));
             ct.ThrowIfCancellationRequested();
             SqliteConnection.ClearAllPools();

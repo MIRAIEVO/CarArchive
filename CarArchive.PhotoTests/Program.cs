@@ -13,6 +13,13 @@ if(args.Length>=2&&args[0]=="--benchmark-exif") {
  Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{Count=photos.Length,Seconds=clock.Elapsed.TotalSeconds,FilesPerSecond=photos.Length/clock.Elapsed.TotalSeconds,WithTimestamp=photos.Count(p=>p.CapturedAt.HasValue),Errors=photos.Count(p=>p.Error.Length>0),OriginalCopies=0,ApiCalls=0,OriginalMetadataUnchanged=files.Select((f,i)=>new FileInfo(f).Length==signatures[i].Length && File.GetLastWriteTimeUtc(f)==signatures[i].Item2).All(x=>x),Formats=files.GroupBy(f=>Path.GetExtension(f)).ToDictionary(g=>g.Key,g=>g.Count())}));return;
 }
 
+if(args.Length>=2&&args[0]=="--benchmark-thumbnails") {
+ var files=Directory.EnumerateFiles(args[1]).Where(f=>PhotoService.Extensions.Contains(Path.GetExtension(f))&&!PhotoService.IsVideo(new Photo {Path=f})).Take(args.Length>=3?int.Parse(args[2]):64).ToArray();
+ var cache=Path.Combine(Path.GetTempPath(),"CarArchive-thumb-bench-"+Guid.NewGuid().ToString("N"));var bench=new PhotoService(cache);var photos=files.Select(f=>PhotoService.Register(f).Reference).ToArray();
+ var clock=System.Diagnostics.Stopwatch.StartNew();await Parallel.ForEachAsync(photos,new ParallelOptions {MaxDegreeOfParallelism=2},async(p,ct)=>await bench.EnsureThumbnailAsync(p,ct));clock.Stop();
+ Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new {Count=photos.Length,Seconds=clock.Elapsed.TotalSeconds,FilesPerSecond=photos.Length/clock.Elapsed.TotalSeconds,Errors=photos.Count(p=>p.Error.Length>0),ApiCalls=0}));return;
+}
+
 var root=Path.Combine(Path.GetTempPath(),"CarArchive-image-tests-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
 void Check(bool value,string text) { if(!value) throw new Exception(text); }
 async Task<byte[]> FixtureAsync(bool rotate)
@@ -36,6 +43,9 @@ var pair=PhotoService.Register(ordinary);var duplicate=pair.Reference.CopyRefere
 var thumbs=await Task.WhenAll(service.EnsureThumbnailAsync(pair.Reference,default),service.EnsureThumbnailAsync(duplicate,default));
 Check(thumbs[0]==thumbs[1] && Directory.GetFiles(Path.Combine(root,"cache")).Length==1 && Path.GetExtension(thumbs[0])==".jpg","Shared thumbnail requests did not coalesce or were not JPEG thumbnails.");Console.WriteLine("PASS shared JPEG thumbnail cache");
 var thumbnail=await DecodeAsync(await File.ReadAllBytesAsync(thumbs[0]));Check(thumbnail.W<=256 && thumbnail.H<=256,"JPEG thumbnail was not regenerated from decoded source pixels.");Console.WriteLine("PASS JPEG thumbnail decoded from source pixels");
+await service.DrainAsync();Directory.Delete(Path.Combine(root,"cache"),true);service.ClearCompletedRequests();
+var reimported=PhotoService.Register(ordinary).Reference;var recreated=await service.EnsureThumbnailAsync(reimported,default);
+Check(File.Exists(recreated)&&reimported.Error.Length==0&&File.Exists(ordinary),"Cache cleanup broke reimport.");Console.WriteLine("PASS second import recreates cache and preserves source");
 var legacyCache=Path.Combine(root,"legacy-cache");var legacyService=new PhotoService(legacyCache);var legacyPhoto=PhotoService.Register(ordinary).Reference;var info=new FileInfo(ordinary);
 var oldKey=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{legacyPhoto.AssetId}|{info.Length}|{info.LastWriteTimeUtc.Ticks}|preview-v3")));
 var stalePreview=Path.Combine(legacyCache,oldKey+".png");await File.WriteAllBytesAsync(stalePreview,[1,2,3]);

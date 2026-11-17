@@ -1,4 +1,4 @@
-#if DEBUG
+﻿#if DEBUG
 using System.Net;
 using System.Text.Json;
 using CarArchive.Core;
@@ -52,7 +52,7 @@ public sealed partial class MainPage
             }
             foreach(var source in hashes) Check(await ArchiveService.HashAsync(source.Key)==source.Value,"Sample original remains byte-identical: "+Path.GetFileName(source.Key));
             Check(!AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Any(b=>b.Label=="上一组"),"Navigation remains separate from recognition actions.");
-            Check(AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Any(b=>b.Label=="联网识别") && AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Any(b=>b.Label=="深入查证") && AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Count(b=>b.Label=="取消本组")==1,"Recognition and verification use the central image toolbar.");
+            Check(AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Any(b=>b.Label=="Gemini识别") && AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Any(b=>b.Label=="深入查证") && AnalysisBar.PrimaryCommands.OfType<AppBarButton>().Count(b=>b.Label=="取消本组")==1,"Recognition and verification use the central image toolbar.");
             ModeFlyout.ShowAt(ModeButton);await Task.Delay(100);ModeSlider.Value=3;Check(VM.State.Settings.Mode==RecognitionMode.Accurate,"Mode popup slider selects accurate mode.");
             ModeSlider.Value=0;Check(VM.State.Settings.Mode==RecognitionMode.FieldsOnly,"Mode popup slider selects fields-only mode.");ModeFlyout.Hide();
             VM.State.Settings.ArchiveRoot=Path.Combine(directory,"library");Directory.CreateDirectory(Path.Combine(VM.State.Settings.ArchiveRoot,"Mercedes-Benz","S-Class (W223)"));

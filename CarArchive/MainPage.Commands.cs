@@ -59,7 +59,7 @@ public sealed partial class MainPage
     private void RefreshCommandHints()
     {
         foreach(var button in AnalysisBar.PrimaryCommands.OfType<AppBarButton>())
-        { var id=button.Label=="联网识别"?"recognize":button.Label=="复制框选图片"?"verify":null;if(id is not null) ToolTipService.SetToolTip(button,button.Label+" · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,id))); }
+        { var id=button.Label=="Gemini识别"?"recognize":button.Label=="复制框选图片"?"verify":null;if(id is not null) ToolTipService.SetToolTip(button,button.Label+" · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,id))); }
         ToolTipService.SetToolTip(ArchiveActionButton,"确认命名并移动 · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"archive")));
         DeleteGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removeGroups"));RemovePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removePhotos"));
         RecycleGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recycleGroups"));RecyclePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recyclePhotos"));

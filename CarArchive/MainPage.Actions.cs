@@ -38,11 +38,11 @@ public sealed partial class MainPage
         WireSuggestions(FolderEdit,OpenFolderSuggestions,CloseFolderSuggestions);
         WireSuggestions(TargetBrandEdit,OpenBrandSuggestions,CloseBrandSuggestions);
         editorSaveTimer.Tick+=(_,_)=> { editorSaveTimer.Stop();if(displayed is not null && displayed.Editable) VM.SaveGroup(displayed); };
-        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) RenderSelection(); };
+        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) DispatcherQueue.TryEnqueue(()=> { if(!categoryClosed && VM.Selected==group) RenderSelection(); }); };
         VM.StructureUpdated+=()=> { if(displayed!=VM.Selected) { FlushEditor();RenderSelection(); } };
         VM.PhotoUpdated+=photo=> { if(currentPhoto?.AssetId==photo.AssetId && MainImage.Source is null) _=ShowPhotoAsync(currentPhoto); };
         PreviewKeyDown+=Commands_KeyDown;
-        RefreshCommandHints();
+        RefreshCommandHints();InitializeContextMenus();
         _=PrepareIndependentPhotosAsync();_ = WarmClipboardAsync();
         App.MainWindow!.Closed += (_, _) => { categoryClosed=true;categoryCancellation?.Cancel();previewCancellation?.Cancel();FlushEditor();VM.Close();CrashJournal.Current?.Complete(); };
         RenderSelection();
@@ -118,7 +118,7 @@ public sealed partial class MainPage
             ToolTipService.SetToolTip(RuleText,RuleText.Text);
             RootText.Text = VM.State.Settings.ArchiveRoot.Length > 0 ? VM.State.Settings.ArchiveRoot : "尚未选择归档根目录";
 
-            PhotoList.ItemsSource = displayed?.Photos;
+            if(!ReferenceEquals(PhotoList.ItemsSource,displayed?.Photos)) PhotoList.ItemsSource = displayed?.Photos;
             if (displayed is not null && !GroupList.SelectedItems.Contains(displayed)) GroupList.SelectedItem = displayed;
             currentPhoto = displayed?.Photos.FirstOrDefault(p=>p.Id==displayed.LastViewedId) ?? displayed?.Photos.FirstOrDefault(p => p.Id == displayed.RepresentativeId) ?? displayed?.Photos.FirstOrDefault();
             PhotoList.SelectedItem = currentPhoto;
@@ -135,7 +135,7 @@ public sealed partial class MainPage
             UpdateExistingCategories();
             UpdateTargetPath();
         }
-        finally { rendering = false; }
+        finally { rendering = false;UpdateMergeSelection(); }
         _ = RefreshCategoryCatalogAsync();
         if(displayed!=previousGroup) FocusCurrentGroup();
         _ = ShowPhotoAsync(currentPhoto);
@@ -192,6 +192,7 @@ public sealed partial class MainPage
     private async Task PrefetchAsync(Photo photo,CancellationToken ct) { try { await Task.Delay(150,ct);await VM.Images.EnsurePreviewAsync(photo,ct); } catch { } }
     private void Group_Changed(object sender, SelectionChangedEventArgs e)
     {
+        UpdateMergeSelection();
         if (rendering) return;
         var group = e.AddedItems.OfType<PhotoGroup>().LastOrDefault(); if (group is null || group == displayed) return;
         editorSaveTimer.Stop();FlushEditor();if(displayed is not null) VM.SaveGroup(displayed);VM.MarkTouched(group); VM.Selected = group; VM.SaveGroup(group); RenderSelection();
@@ -226,13 +227,16 @@ public sealed partial class MainPage
     private async void ImportGroup_Click(object sender, RoutedEventArgs e) => await RunAsync(async ct => { var paths=await PickPhotosAsync(); if(paths.Count>0) await VM.ImportAsync(paths,true,ct); });
     private async void ImportBatch_Click(object sender, RoutedEventArgs e) => await RunAsync(async ct => {
         var folder=await PickFolderAsync();if(folder is null || !await BatchOptionsAsync()) return;
-        var files=await Task.Run(()=>Directory.EnumerateFiles(folder).ToList(),ct);await VM.ImportAsync(files,false,ct);
+        var includeVideos=VM.State.Settings.ImportVideos;
+        var files=await Task.Run(()=>Directory.EnumerateFiles(folder).Where(path=>includeVideos || !PhotoService.IsVideo(new Photo {Path=path})).ToList(),ct);await VM.ImportAsync(files,false,ct);
     });
     private async Task<bool> BatchOptionsAsync()
     {
         var gap=new NumberBox { Header="时间分组间隔（秒）",Value=VM.State.Settings.GroupGapSeconds,Minimum=1,Maximum=3600,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact };
-        if(await DialogAsync("批量导入",gap,"导入",null,"取消")!=ContentDialogResult.Primary) return false;
-        if(double.IsNaN(gap.Value)) throw new ArgumentException("请填写有效的分组间隔。");VM.State.Settings.GroupGapSeconds=(int)gap.Value;VM.SaveHeader();return true;
+        var videos=new ToggleSwitch {Header="导入视频",IsOn=VM.State.Settings.ImportVideos};
+        var options=new StackPanel {Spacing=16};options.Children.Add(gap);options.Children.Add(videos);
+        if(await DialogAsync("批量导入",options,"导入",null,"取消")!=ContentDialogResult.Primary) return false;
+        if(double.IsNaN(gap.Value)) throw new ArgumentException("请填写有效的分组间隔。");VM.State.Settings.ImportVideos=videos.IsOn;VM.State.Settings.GroupGapSeconds=(int)gap.Value;VM.SaveHeader();return true;
     }
     private void DeleteImportedGroup_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("removeGroups",sender,e);
     private async Task RemoveGroupsCoreAsync()
@@ -285,7 +289,7 @@ public sealed partial class MainPage
     private void Deep_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("verify",sender,e);
     private async Task QueryGroupAsync(bool deep)
     {
-        try { CapturePreviewVideoPosition();FlushEditor();var group=RequireGroup();if(!group.Editable) throw new InvalidOperationException("本组正在执行任务或已归档。");if(deep && group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先联网识别或填写待查证车型。");var settings=VM.CaptureSettings();VM.SaveGroup(group);await VM.RunGroupAsync(group,deep?"深入查证":"联网识别",false,ct=>VM.RecognizeAsync(group,deep,ct,settings));if(VM.Selected==group && narrowLayout && group.Suggestion is not null) PaneBox.SelectedIndex=2; }
+        try { CapturePreviewVideoPosition();FlushEditor();var group=RequireGroup();if(!group.Editable) throw new InvalidOperationException("本组正在执行任务或已归档。");if(deep && group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先Gemini识别或填写待查证车型。");var settings=VM.CaptureSettings();VM.SaveGroup(group);await VM.RunGroupAsync(group,deep?"深入查证":"联网识别",false,ct=>VM.RecognizeAsync(group,deep,ct,settings));if(VM.Selected==group && narrowLayout && group.Suggestion is not null) PaneBox.SelectedIndex=2; }
         catch(Exception error) { VM.Status=error.Message; }
     }
     private void Cancel_Click(object sender,RoutedEventArgs e) { if(VM.Selected is not null) VM.Tasks.Cancel(VM.Selected.Id); }
@@ -297,8 +301,8 @@ public sealed partial class MainPage
     }
     private void RestoreName_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { var g=RequireGroup();if(!g.Editable) return;var old=g.FolderName;g.FolderName=g.PreviousFolderName;g.PreviousFolderName=old;g.ManualName=true;VM.SaveGroup(g); });
     private async void Duplicate_Click(object sender,RoutedEventArgs e) { try { FlushEditor();var before=new Dictionary<string,string>();var copied=await VM.DuplicateAsync(RequireGroup(),default);VM.RecordEdits(before,new(){copied.Id});RenderSelection(); }catch(Exception error) { VM.Status=error.Message; } }
-    private void Merge_Click(object sender,RoutedEventArgs e) => LocalAction(()=>VM.Merge(GroupList.SelectedItems.OfType<PhotoGroup>().OrderBy(g=>VM.Groups.IndexOf(g)).ToList()));
-    private void Split_Click(object sender,RoutedEventArgs e) => LocalAction(()=>VM.Split(RequireGroup(),PhotoList.SelectedItems.OfType<Photo>().ToList()));
+    private void Merge_Click(object sender,RoutedEventArgs e) {var groups=GroupList.SelectedItems.OfType<PhotoGroup>().OrderBy(g=>VM.Groups.IndexOf(g)).ToList();LocalAction(()=>VM.Merge(groups));}
+    private void Split_Click(object sender,RoutedEventArgs e) {var group=RequireGroup();var photos=PhotoList.SelectedItems.OfType<Photo>().ToList();LocalAction(()=>VM.Split(group,photos));}
     private void Exclude_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { var g=RequireGroup(); if(!g.Editable) throw new InvalidOperationException("本组暂不可编辑。"); foreach(var p in PhotoList.SelectedItems.OfType<Photo>()) p.Excluded=!p.Excluded;VM.MarkTouched(g); InvalidateEvidence(g,"照片范围已改变"); });
     private void Representative_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { if(currentPhoto is not null) { RequireGroup().RepresentativeId=currentPhoto.Id; VM.Status="代表图已设置；识别时优先使用这张照片。"; } });
     private async void OpenPhoto_Click(object sender,RoutedEventArgs e) => await RunAsync(async _=> { if(currentPhoto is not null) await Launcher.LaunchFileAsync(await StorageFile.GetFileFromPathAsync(currentPhoto.Path)); });
@@ -306,6 +310,15 @@ public sealed partial class MainPage
     private void Next_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("next",sender,e);
     private void LocalAction(Action action,bool record=true)
     {
+        if(activeContextMenu is { } menu)
+        {
+            void Closed(object? sender,object args)
+            {
+                menu.Closed-=Closed;
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,()=>LocalAction(action,record));
+            }
+            menu.Closed+=Closed;menu.Hide();return;
+        }
         CrashJournal.Trace("UI."+action.Method.Name,displayed?.Id);editorSaveTimer.Stop();FlushEditor();
         try { var ids=VM.Groups.Select(g=>g.Id).ToHashSet();var targets=GroupList.SelectedItems.OfType<PhotoGroup>().Concat(displayed is null?[]:new[]{displayed}).Distinct().ToArray();var before=record?VM.CaptureEdits(targets):null;if(displayed is not null) VM.SaveGroup(displayed);action();if(before is not null) VM.RecordEdits(before,targets.Select(g=>g.Id).Concat(VM.Groups.Where(g=>!ids.Contains(g.Id)).Select(g=>g.Id)).ToHashSet());if(VM.Selected is not null) VM.SaveGroup(VM.Selected); RenderSelection(); } catch(Exception e) { VM.Status=e.Message; Notice.Severity=InfoBarSeverity.Warning; }
     }
@@ -393,7 +406,7 @@ public sealed partial class MainPage
         var before=VM.CaptureEdits(displayed is null?[]:new[]{displayed});currentPhoto.Crop=new((Math.Min(cropStart.X,end.X)-r.X)/r.Width,(Math.Min(cropStart.Y,end.Y)-r.Y)/r.Height,Math.Abs(end.X-cropStart.X)/r.Width,Math.Abs(end.Y-cropStart.Y)/r.Height);
         VM.RecordEdits(before,displayed is null?[]:new(){displayed.Id});CrashJournal.Trace("Photo.Crop",displayed?.Id);
         if(displayed is not null) InvalidateEvidence(displayed,"目标框选已改变");
-        if(displayed is not null) { VM.MarkTouched(displayed);VM.SaveGroup(displayed);VerificationText.Text="目标已改变，需要重新识别或人工核对。"; } PhotoCaption.Text=currentPhoto.Caption; VM.Status="目标已框选；点击联网识别重新分析。";
+        if(displayed is not null) { VM.MarkTouched(displayed);VM.SaveGroup(displayed);VerificationText.Text="目标已改变，需要重新识别或人工核对。"; } PhotoCaption.Text=currentPhoto.Caption; VM.Status="目标已框选；点击Gemini识别重新分析。";
     }
     private void Crop_Canceled(object sender,PointerRoutedEventArgs e) { drawing=false; DrawSavedCrop(); }
     private void DrawSavedCrop() { if(CropOutline is null) return; if(currentPhoto?.Crop is not { } c) { CropOutline.Visibility=Visibility.Collapsed; return; } var r=ImageRect(); DrawBox(new(r.X+c.X*r.Width,r.Y+c.Y*r.Height),new(r.X+(c.X+c.Width)*r.Width,r.Y+(c.Y+c.Height)*r.Height)); }

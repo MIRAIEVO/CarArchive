@@ -1,4 +1,4 @@
-﻿param([string]$Version='1.2.1',[switch]$NoRestore)
+﻿param([string]$Version='1.2.2',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -47,13 +47,13 @@ foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充�
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.2.1: fast EXIF containers, cursor-anchored zoom, cropped-image copy, pasted identity JSON, Gemini/grounded modes, model picker and bounded naming audit.
+Release 1.2.2: repeatable batch import, accelerated full-frame thumbnails, global upload selection, automatic JSON parsing, fixed settings navigation and configuration-only migration.
 Brand, series and model naming guidance is bundled for offline use; existing archive folders are not renamed.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8
 @'
 Each release stores its own data under Data next to the root launcher. This package contains no photos, database or API key.
-Close the application before backing up Data. Import previous data using the first-run selector.
+Close the application before backing up Data. The first-run selector imports API credentials, settings, naming learning and archive targets only; groups, media caches and operation history are excluded.
 Crash reports: Data\crashes. Clean exits discard recent-action checkpoints.
 API credentials are DPAPI-protected for the current Windows user.
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Data-and-Backup.txt') -Encoding utf8

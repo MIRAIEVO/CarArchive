@@ -22,6 +22,10 @@ public sealed partial class StateStore
  {
   lock(gate){using var db=Open();using var c=db.CreateCommand();c.CommandText="SELECT name FROM sqlite_master WHERE type='table' AND name='naming_click_log'";if(c.ExecuteScalar() is null)return [];c.CommandText="SELECT json FROM naming_click_log ORDER BY id";using var reader=c.ExecuteReader();var rows=new List<NamingClickLog>();while(reader.Read())rows.Add(JsonSerializer.Deserialize<NamingClickLog>(reader.GetString(0),Json)!);return rows;}
  }
+ public void ClearNamingClicks()
+ {
+  lock(gate){using var db=Open();using var c=db.CreateCommand();c.CommandText="DROP TABLE IF EXISTS naming_click_log";c.ExecuteNonQuery();}
+ }
  public string ExportNamingClicksCsv()
  {
   var fields=typeof(CarIdentity).GetProperties().Where(p=>p.CanWrite&&p.PropertyType==typeof(string)).ToArray();var text=new StringBuilder();

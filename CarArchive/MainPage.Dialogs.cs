@@ -24,7 +24,6 @@ public sealed partial class MainPage
             var reset=new Button { Content="开始新批次（重置调用计数）",HorizontalAlignment=HorizontalAlignment.Stretch };
             var checkStatus=Paragraph("读取模型清单不发送照片、不生成内容。Gemini 使用图像与已有知识；grounded 启用 Google Search，实际来源以接口引用为准。模型可见不代表当前账号有足够额度。");
             var links=new StackPanel { Spacing=6 };
-            var panel=new StackPanel { Spacing=12,MinWidth=410,MaxWidth=560 };
             var tokenPolicy=new ToggleSwitch { Header="识别提示策略",OffContent="兼容提示",OnContent="优化提示",IsOn=VM.State.Settings.OptimizeRecognitionTokens };
             var advanced=new StackPanel { Spacing=8 };advanced.Children.Add(tokenPolicy);advanced.Children.Add(Paragraph("优化提示保留原有图片、视角和思考预算；可随时切回兼容提示。"));foreach(var element in new FrameworkElement[]{check,checkStatus}) advanced.Children.Add(element);
             var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{key,model,search,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。复制框选图片不调用 API。"),reset,new Expander { Header="模型清单与提示设置",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
@@ -34,12 +33,13 @@ public sealed partial class MainPage
             var openTrash=new Button { Content="打开回收站" };openTrash.Click+=OpenRecycleBin_Click;
             var maintenanceStatus=Paragraph("");var exportNaming=new Button{Content="导出记住名称日志 CSV（最近 1000 条）"};naming.Children.Add(exportNaming);exportNaming.Click+=async(_,_)=>{try{await ExportNamingLogAsync();}catch(Exception error){maintenanceStatus.Text=error.Message;}};
             var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,openTrash,maintenanceStatus}) maintenance.Children.Add(element);
-            panel.Children.Add(new Expander { Header="识别与费用",Content=recognition,IsExpanded=true,HorizontalAlignment=HorizontalAlignment.Stretch });
-            panel.Children.Add(new Expander { Header="命名学习",Content=naming,HorizontalAlignment=HorizontalAlignment.Stretch });
-            panel.Children.Add(new Expander { Header="数据与维护",Content=maintenance,HorizontalAlignment=HorizontalAlignment.Stretch });
-            panel.Children.Add(new Expander { Header="快捷键与确认",Content=BuildInteractionSettingsPanel(),HorizontalAlignment=HorizontalAlignment.Stretch });
-            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=new ScrollViewer { Content=panel,MaxHeight=620 },PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
+            var clearNames=new Button {Content="删除现有记住命名数据"};naming.Children.Add(clearNames);
+            var clearCrashes=new Button {Content="删除崩溃日志"};maintenance.Children.Add(clearCrashes);
+            var settingsPages=BuildSettingsNavigation(recognition,naming,maintenance,BuildInteractionSettingsPanel());
+            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=settingsPages,PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
             Action? afterClose=null;
+            clearNames.Click+=(_,_)=> {afterClose=()=>ClearRememberedNames_Click(sender,e);dialog.Hide();};
+            clearCrashes.Click+=(_,_)=> {afterClose=()=>ClearCrashLogs_Click(sender,e);dialog.Hide();};
             openLearning.Click+=(_,_)=> { afterClose=()=>Rules_Click(sender,e);dialog.Hide(); };
             openGuide.Click+=(_,_)=> { afterClose=()=>NamingGuide_Click(sender,e);dialog.Hide(); };
             openData.Click+=async(_,_)=> { try { await Windows.System.Launcher.LaunchFolderPathAsync(ViewModels.MainViewModel.DataDirectory); } catch(Exception error) { maintenanceStatus.Text=error.Message; } };

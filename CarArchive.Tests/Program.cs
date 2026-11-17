@@ -242,6 +242,7 @@ NamingTests.Register(Test);
 BuiltInNamingTests.Register(Test);
 UploadSelectionTests.Register(Test);
 V121Tests.Register(Test);
+V122Tests.Register(Test);
 CategorySearchTests.Register(Test);
 UsabilityTests.Register(Test);
 InteractionTests.Register(Test);

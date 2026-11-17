@@ -150,7 +150,8 @@ public sealed class PhotoGroup : Observable
     [JsonIgnore] public string TaskColor => Archived?"#00000000":TaskState switch { GroupTaskState.Running=>"#DF4050",GroupTaskState.Completed=>"#23A46B",GroupTaskState.Failed or GroupTaskState.Canceled=>"#D89920",_=>"#929AA5" };
     [JsonIgnore] public double DisplayOpacity => Archived?0.52:1;
     [JsonIgnore] public double ArchivedStrikeOpacity => Archived?0.8:0;
-    [JsonIgnore] public string TaskLabel => TaskState switch { GroupTaskState.Queued=>TaskKind+" · 排队",GroupTaskState.Running=>TaskKind+" · 进行中",GroupTaskState.Completed=>TaskKind+" · 已完成",GroupTaskState.Failed=>TaskKind+" · "+LastError,GroupTaskState.Canceled=>TaskKind+" · 已取消",_=>State };
+    [JsonIgnore] private string DisplayTaskKind => TaskKind.Replace("联网识别","Gemini识别");
+    [JsonIgnore] public string TaskLabel => TaskState switch { GroupTaskState.Queued=>DisplayTaskKind+" · 排队",GroupTaskState.Running=>DisplayTaskKind+" · 进行中",GroupTaskState.Completed=>DisplayTaskKind+" · 已完成",GroupTaskState.Failed=>DisplayTaskKind+" · "+LastError,GroupTaskState.Canceled=>DisplayTaskKind+" · 已取消",_=>State.Replace("联网识别","Gemini识别") };
     public string State { get; set; } = "待复核分组";
     public RecognitionResult? Suggestion { get; set; }
     public VerificationReport? Verification { get; set; }
@@ -183,6 +184,8 @@ public sealed class NamingRule
 public sealed record LearnedName(string IdentityKey, string Brand, string FolderName);
 public sealed class AppSettings
 {
+    public bool UploadMultiple { get; set; }
+    public bool ImportVideos { get; set; } = true;
     public string ArchiveRoot { get; set; } = "";
     public string Model { get; set; } = "gemini-3.8-flash";
     public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;

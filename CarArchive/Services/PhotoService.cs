@@ -67,9 +67,12 @@ public sealed class PhotoService
                 try {
                     var target=Path.Combine(cacheDirectory,key+"-thumb-full-v2.jpg"); if(File.Exists(target)) return target;
                     var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,CancellationToken.None));
-                    using var stream=await file.OpenReadAsync();var decoder=await BitmapDecoder.CreateAsync(stream);
-                    // Always derive a complete oriented frame, never a cropped shell or EXIF thumbnail.
-                    var data=await EncodeAsync(decoder,256,null);
+                    var data=await CachedThumbnailAsync(file);
+                    if(data is null)
+                    {
+                        using var stream=await file.OpenReadAsync();var decoder=await BitmapDecoder.CreateAsync(stream);
+                        data=await EmbeddedThumbnailAsync(decoder) ?? await EncodeAsync(decoder,256,null);
+                    }
                     await AtomicWriteAsync(target,data); return target;
                 } finally { decoders.Release(); }
             }))).Value.WaitAsync(ct);
@@ -141,12 +144,40 @@ public sealed class PhotoService
         }
         photo.AnalysisPath=target;return target;
     }
+    private static async Task<byte[]?> CachedThumbnailAsync(StorageFile file)
+    {
+        try
+        {
+            using var thumbnail=await file.GetThumbnailAsync(ThumbnailMode.SingleItem,256,ThumbnailOptions.ReturnOnlyIfCached | ThumbnailOptions.ResizeThumbnail);
+            if(thumbnail is null || thumbnail.Type!=ThumbnailType.Image || thumbnail.OriginalWidth==0 || thumbnail.OriginalHeight==0) return null;
+            var decoder=await BitmapDecoder.CreateAsync(thumbnail);
+            var sourceRatio=(double)thumbnail.OriginalWidth/thumbnail.OriginalHeight;
+            var ratio=(double)decoder.OrientedPixelWidth/decoder.OrientedPixelHeight;
+            if(Math.Abs(ratio/sourceRatio-1)>0.025 || Math.Max(decoder.PixelWidth,decoder.PixelHeight)<128) return null;
+            return await EncodeAsync(decoder,256,null);
+        }
+        catch(Exception error) when(error is COMException or ArgumentException or IOException) { return null; }
+    }
+    private static async Task<byte[]?> EmbeddedThumbnailAsync(BitmapDecoder source)
+    {
+        try
+        {
+            using var thumbnail=await source.GetThumbnailAsync();
+            var decoder=await BitmapDecoder.CreateAsync(thumbnail);
+            var sourceRatio=(double)source.OrientedPixelWidth/source.OrientedPixelHeight;
+            var ratio=(double)decoder.OrientedPixelWidth/decoder.OrientedPixelHeight;
+            if(Math.Abs(ratio/sourceRatio-1)>0.025 || Math.Max(decoder.PixelWidth,decoder.PixelHeight)<128) return null;
+            return await EncodeAsync(decoder,256,null);
+        }
+        catch(Exception error) when(error is COMException or ArgumentException or IOException) { return null; }
+    }
     private static async Task AtomicWriteAsync(string path,byte[] bytes)
     {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp=path+"."+Guid.NewGuid().ToString("N")+".tmp";
         try { await File.WriteAllBytesAsync(temp,bytes); File.Move(temp,path,true); } finally { if(File.Exists(temp)) File.Delete(temp); }
     }
-    private void SetError(Photo photo,Exception e)=>Publish(()=> { photo.Error=e is FileNotFoundException or DirectoryNotFoundException?"原图位置已变化或文件不存在；缓存及分类记录已保留。":$"无法解码 {Path.GetExtension(photo.Path)}。HEIC/HEIF 需要相应 HEIF/HEVC 扩展；DNG 需要 Windows Raw Image Extension；视频需要对应系统解码器。{e.GetType().Name}"; if(photo.Asset is not null) photo.Asset.Refresh(); });
+    private void SetError(Photo photo,Exception e)=>Publish(()=> { photo.Error=!File.Exists(photo.Path)?"原图位置已变化或文件不存在；缓存及分类记录已保留。":$"无法解码 {Path.GetExtension(photo.Path)}。HEIC/HEIF 需要相应 HEIF/HEVC 扩展；DNG 需要 Windows Raw Image Extension；视频需要对应系统解码器。{e.GetType().Name}"; if(photo.Asset is not null) photo.Asset.Refresh(); });
     private static async Task<byte[]> EncodeAsync(BitmapDecoder decoder,int longestEdge,CropRect? crop,Guid? encoderId=null)
     {
         var orientation=await ReadOrientationAsync(decoder);

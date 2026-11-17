@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace CarArchive.Core;
 
@@ -8,14 +8,14 @@ public sealed class NamingService
     public NamingGuide? Guide { get; set; } = BuiltInNamingGuide.Load();
     public static string DefaultName(CarIdentity car)
     {
-        return NamingGuideEngine.Generate(car,new()).Name;
+        return CleanGeneratedName(NamingGuideEngine.Generate(car,new()).Name);
     }
     public string ResolveBrand(string brand,WorkspaceState state)=>Guide?.Index.ResolveBrand(brand,state) ?? NamingGuideBuilder.MapBrand(brand,state);
     public string ResolveBrand(CarIdentity identity,WorkspaceState state)=>BuiltInNamingGuide.ResolveBrand(identity,state,Guide);
     public (string Name, string Reason) Suggest(CarIdentity identity, WorkspaceState state, IEnumerable<string> existing)
     {
         var guide=Guide is not null && (Guide.SourceRoot.Length==0 || Guide.SourceRoot.Equals(state.Settings.ArchiveRoot,StringComparison.OrdinalIgnoreCase))?Guide:BuiltInNamingGuide.Load();
-        var decision=NamingGuideEngine.Generate(identity,state,guide);var name=decision.Name;
+        var decision=NamingGuideEngine.Generate(identity,state,guide);var name=CleanGeneratedName(decision.Name);
         var match = existing.FirstOrDefault(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase));
         return (match ?? name, decision.Reason+(match is not null?"；匹配规范名称的已有目录":""));
     }
@@ -35,6 +35,7 @@ public sealed class NamingService
                 return new() { Brand = brand, From = from, To = to };
         return null;
     }
+    public static string CleanGeneratedName(string value) => Regex.Replace(value.Replace(":", "").Replace("/", ""), @"\s+", " ").Trim();
     public static string SafeSegment(string input)
     {
         var value = input.Trim();

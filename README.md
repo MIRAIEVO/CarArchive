@@ -1,8 +1,8 @@
-﻿# CarArchive 1.2.1 · 车影归档
+﻿# CarArchive 1.2.2 · 车影归档
 
 Windows 汽车照片分类工具：导入照片、调整分组、联网识别／网页人工查证、复核命名后归档。采用 C#、.NET 10、WinUI 3、SQLite。
 
-- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.2.1/CarArchive-1.2.1-windows-x64.zip)
+- [下载 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.2.2/CarArchive-1.2.2-windows-x64.zip)
 - [使用说明](CarArchive/README.md) · [升级记录](CHANGELOG.md) · [版本说明](docs/releases/README.md)
 - [协作交接](docs/collaboration/HANDOFF.md) · [共同作者](AUTHORS.md)
 
@@ -17,9 +17,9 @@ Windows 汽车照片分类工具：导入照片、调整分组、联网识别／
 
 组间任务独立，默认两个识别任务和独立文件队列并行。复制组会创建独立原图副本；移除记录默认保留照片，回收源照片是单独的操作，且不用于已归档照片。
 
-## 1.2.1
+## 1.2.2
 
-EXIF 容器快读、鼠标锚点缩放、复制预热、网页 JSON 导入、Gemini／grounded 切换、官方模型下拉、1000 条记住名称日志与 CSV。详见 [本版说明](docs/releases/release-notes-v1.2.1.md)。
+二次导入修复、缩略图提速、全局上传开关、自动 JSON 回填、浮动合并、右键菜单及固定设置子页、首次配置限定导入。详见 [本版说明](docs/releases/release-notes-v1.2.2.md)。
 
 ## 1.2
 
@@ -45,7 +45,7 @@ EXIF 容器快读、鼠标锚点缩放、复制预热、网页 JSON 导入、Gem
 dotnet run --project .\CarArchive.Tests\CarArchive.Tests.csproj
 dotnet run --project .\CarArchive.PhotoTests\CarArchive.PhotoTests.csproj
 dotnet run --project .\CarArchive.Tools\CarArchive.Tools.csproj -- self-test-readonly
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Package-Portable.ps1 -Version 1.2.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Package-Portable.ps1 -Version 1.2.2
 ```
 
 发布包位于 `artifacts`。原生验证只使用隔离的 `CARARCHIVE_DATA_DIR`；日常 Data、旧发布目录和备份不作为破坏性测试目标。

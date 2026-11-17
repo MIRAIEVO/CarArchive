@@ -46,7 +46,7 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         if(settings.Mode==RecognitionMode.Accurate)
         {
             var report=new VerificationReport { Candidate=result.Identity.Clone(),Features=result.Features };
-            report.Stages.Add(new() { Name=settings.Search==SearchPreference.Grounded?"联网识别与特征检索":"Gemini 图像识别与特征推理",SearchEnabled=settings.Search==SearchPreference.Grounded,Result=CloneStageResult(result) });
+            report.Stages.Add(new() { Name=settings.Search==SearchPreference.Grounded?"Gemini识别与特征检索":"Gemini 图像识别与特征推理",SearchEnabled=settings.Search==SearchPreference.Grounded,Result=CloneStageResult(result) });
             result.Verification=await CompareAsync(photos,settings,report,ct);
             // Keep initial identity intact; comparison corrections are adopted explicitly by the user.
         }

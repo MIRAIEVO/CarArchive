@@ -94,7 +94,7 @@ public sealed partial class MainPage
         {
             if(version!=suggestionRequestVersion || categoryClosed || group!=displayed?.Id || displayed?.Editable!=true || !InputFocused(box)) return;
             suggestionOwner=box;suggestionPlacement=placement;UpdateSuggestionItems(box,matches,width,height);
-            suggestionsFlyout.OverlayInputPassThroughElement=input;
+            suggestionsFlyout.OverlayInputPassThroughElement=this;
             // Native placement, clipping and transitions honor the current theme and system animation setting.
             suggestionsFlyout.ShowAt(input,new FlyoutShowOptions { Placement=placement,ShowMode=FlyoutShowMode.Transient });suggestionOpenCount++;
         }

@@ -121,7 +121,7 @@ public sealed partial class MainViewModel
     {
         try {
             await BackgroundImport;await Images.DrainAsync();if(Groups.Count!=0 || Database.PhotoOperations().Any(PhotoLifecycleService.Unfinished) || Store.Jobs().Any(j=>j.Status is "Pending" or "Interrupted"))return;
-            foreach(var name in purgeUndo?new[]{"cache","clipboard","undo","managedphotos"}:new[]{"cache","clipboard"}) {var directory=Path.Combine(DataDirectory,name);if(Directory.Exists(directory))Directory.Delete(directory,true);}
+            foreach(var name in purgeUndo?new[]{"cache","clipboard","undo","managedphotos"}:new[]{"cache","clipboard"}) {var directory=Path.Combine(DataDirectory,name);if(Directory.Exists(directory)) { foreach(var entry in Directory.EnumerateFileSystemEntries(directory)) { if(Directory.Exists(entry))Directory.Delete(entry,true);else File.Delete(entry); } }}
             if(purgeUndo){History.Clear();SaveHistory();State.Assets.Clear();}Save();Images.ClearCompletedRequests();
         } catch(Exception error) {Status="缓存清理未完成："+error.Message;}
     }

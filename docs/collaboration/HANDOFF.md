@@ -74,3 +74,8 @@ Codex 独立工作副本负责元数据快读、鼠标锚点缩放、裁剪复�
 
 
 1.2.1 完成记录：核心 175/175、原生新窗口 12 项、1.2 流程 19 项、图像 10/10 与 MP4 测试通过；本机252个源文件元数据约1543个/秒、全部有时间，文件长度／修改时间不变。合成预览复制准备约81ms（拦截系统剪贴板写入）。零真实 API 生成。官方模型清单核对到 Gemini 4 Hydrogen。CSV从成功手动记住名称开始记录，最多1000，崩溃最多10。发布状态以 GitHub v1.2.1 为准。
+
+## 1.2.2 — Codex, 2026-11-17
+Scope: cache lifecycle, import throughput, configuration-only migration, global upload selection, JSON paste, menus and settings navigation. Baseline b9430c4. No real Gemini calls. Preserve user originals and prior Data.
+
+1.2.2 验证：178/178 核心，原生图片与 MP4，18 项隔离窗口检查。HEIC 同机64张从23.784秒到1.995秒，无解码失败。WER确认 WinUI c0000005，尚缺堆栈证明唯一根因，已修正菜单关闭时结构编辑与重复绑定重入路径。所有用户可见识别名称统一 Gemini识别。零真实API生成；旧Data及原照片保留。

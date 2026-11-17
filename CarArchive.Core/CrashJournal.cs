@@ -70,6 +70,15 @@ public sealed class CrashJournal : IDisposable
         NamingGuideStore.WriteAtomic(path,JsonSerializer.Serialize(new { At=DateTimeOffset.Now,Reason=reason,Exception=exception,Session=JsonSerializer.Deserialize<JsonElement>(recent) },new JsonSerializerOptions(StateStore.Json) { WriteIndented=true }),false);
         PruneReports();
     }
+    public int ClearReports()
+    {
+        lock(gate)
+        {
+            var count=0;
+            foreach(var file in Directory.EnumerateFiles(directory,"crash-*.json")) {File.Delete(file);count++;}
+            return count;
+        }
+    }
     private void PruneReports() {foreach(var old in Directory.EnumerateFiles(directory,"crash-*.json").OrderByDescending(File.GetLastWriteTimeUtc).Skip(10)) File.Delete(old);}
     public void Complete()
     {

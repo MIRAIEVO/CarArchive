@@ -165,7 +165,7 @@ public sealed partial class MainViewModel : Observable
     }
     public async Task RunGroupAsync(PhotoGroup group,string kind,bool fileOperation,Func<CancellationToken,Task> action)
     {
-        if(kind=="联网识别") {group.PendingUploadPhotos=UploadSelection.Select(group);group.UploadingPhotoIds=group.PendingUploadPhotos.Select(p=>p.Id).ToHashSet();}
+        if(kind=="联网识别") {group.PendingUploadPhotos=UploadSelection.Select(group,State.Settings.UploadMultiple);group.UploadingPhotoIds=group.PendingUploadPhotos.Select(p=>p.Id).ToHashSet();}
         MarkTouched(group);
         CrashJournal.Trace("Task.Start."+kind,group.Id);
         try { await Tasks.RunAsync(group,kind,fileOperation,action,()=> { SaveGroup(group);GroupUpdated?.Invoke(group); },shutdown.Token); }
@@ -177,7 +177,7 @@ public sealed partial class MainViewModel : Observable
         if(group.Archived) throw new InvalidOperationException("已归档组请先撤销。");
         var settings=capturedSettings ?? CaptureSettings();
         settings.Mode=group.Mode;settings.ExplicitUploadSelection=true;
-        var photos=group.PendingUploadPhotos??UploadSelection.Select(group);group.UploadingPhotoIds=photos.Select(p=>p.Id).ToHashSet();
+        var photos=group.PendingUploadPhotos??UploadSelection.Select(group,State.Settings.UploadMultiple);group.UploadingPhotoIds=photos.Select(p=>p.Id).ToHashSet();
         if(deep)
         {
             if(group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先联网识别或填写待查证车型。");
@@ -302,6 +302,11 @@ public sealed partial class MainViewModel : Observable
         try { await Task.Run(async ()=> { if(undo) await Archive.UndoAsync(job,ct);else await Archive.ExecuteAsync(job,ct); },ct); }
         finally { if(group is not null) { ArchiveService.Reconcile(new WorkspaceState { Groups=[group] },await Task.Run(Store.Jobs));SaveGroup(group);GroupUpdated?.Invoke(group); } }
         Status=undo?"已撤销所选组，其他组的副本保持不变。":"中断操作已恢复。";
+    }
+    public async Task ClearNamingDataAsync()
+    {
+        if(Groups.Any(g=>g.IsWorking))throw new InvalidOperationException("请等待当前任务结束后再清除学习数据。");
+        await FlushWritesAsync();State.Names.Clear();State.Rules.Clear();State.NamingSamples.Clear();State.LocalNamingRules.Clear();SaveHeader();await FlushWritesAsync();Database.ClearNamingClicks();
     }
     public string ExportNamingClicksCsv()=>Database.ExportNamingClicksCsv();
     public void Close()

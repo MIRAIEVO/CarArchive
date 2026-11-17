@@ -55,7 +55,7 @@ public partial class App : Application
                 var sources=new ComboBox { Header="导入来源（旧版必须先关闭）",HorizontalAlignment=HorizontalAlignment.Stretch,MinWidth=450,ItemsSource=PortableData.DiscoverSources(data) };
                 if(sources.Items.Count>0) sources.SelectedIndex=0;
                 var browse=new Button { Content="选择其他数据目录…" };
-                var message=new TextBlock { Text="每个版本的数据独立保存。导入会复制数据库、缓存、命名指南和加密 Key；旧数据保持不变。\n当前版本："+data,TextWrapping=TextWrapping.Wrap };
+                var message=new TextBlock { Text="每个版本的数据独立保存。导入仅复制 API Key、设置、命名学习和目标目录配置；分组、缓存及操作历史从空白开始；旧数据保持不变。\n当前版本："+data,TextWrapping=TextWrapping.Wrap };
                 var panel=new StackPanel { Spacing=14 };panel.Children.Add(message);panel.Children.Add(sources);panel.Children.Add(browse);
                 var dialog=new ContentDialog { XamlRoot=root.XamlRoot,Title="建立本版本工作区",Content=panel,PrimaryButtonText="导入所选数据",SecondaryButtonText="创建空工作区",CloseButtonText="退出",IsPrimaryButtonEnabled=sources.SelectedItem is not null };
                 browse.Click+=async (_,_)=>
@@ -67,7 +67,7 @@ public partial class App : Application
                 dialog.PrimaryButtonClick+=async (_,eventArgs)=>
                 {
                     var deferral=eventArgs.GetDeferral();dialog.IsPrimaryButtonEnabled=false;dialog.IsSecondaryButtonEnabled=false;browse.IsEnabled=false;sources.IsEnabled=false;
-                    try { if(sources.SelectedItem is not PortableDataSource selected) throw new InvalidOperationException("请选择旧版本 Data 或原 CarArchive 数据目录。");await PortableData.ImportAsync(selected.Path,data); }
+                    try { if(sources.SelectedItem is not PortableDataSource selected) throw new InvalidOperationException("请选择旧版本 Data 或原 CarArchive 数据目录。");await PortableData.ImportConfigurationAsync(selected.Path,data); }
                     catch(Exception e) { eventArgs.Cancel=true;message.Text=e.Message; }
                     finally { dialog.IsPrimaryButtonEnabled=true;dialog.IsSecondaryButtonEnabled=true;browse.IsEnabled=true;sources.IsEnabled=true;deferral.Complete(); }
                 };

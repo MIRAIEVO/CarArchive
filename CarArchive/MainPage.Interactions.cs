@@ -70,6 +70,20 @@ public sealed partial class MainPage
             if(node is ListViewItem item && list.Items.Contains(item.Content))
             { if(!item.IsSelected) list.SelectedItem=item.Content;break; }
     }
+    private MenuFlyout? activeContextMenu;
+    private void InitializeContextMenus()
+    {
+        foreach(var menu in new[]{GroupList.ContextFlyout,PhotoList.ContextFlyout}.OfType<MenuFlyout>())
+        {
+            menu.Opening+=(_,_)=>activeContextMenu=menu;
+            menu.Closed+=(_,_)=> {if(activeContextMenu==menu)activeContextMenu=null;};
+        }
+    }
+    private void UpdateMergeSelection()
+    {
+        var groups=GroupList.SelectedItems.OfType<PhotoGroup>().ToArray();
+        MergeSelectionButton.Visibility=groups.Length>=2 && groups.All(g=>g.Editable)?Visibility.Visible:Visibility.Collapsed;
+    }
     private void Group_ContextRequested(UIElement sender,ContextRequestedEventArgs args)
     {
         SelectContextItem(GroupList,args.OriginalSource as DependencyObject);
@@ -87,7 +101,7 @@ public sealed partial class MainPage
         var count=PhotoList.SelectedItems.Count;var editable=VM.SelectedEditable && count>0;
         var querying=VM.Selected is { IsWorking:true,TaskKind:"联网识别" };
         SplitPhotosMenu.IsEnabled=(editable || querying && count>0 && PhotoList.SelectedItems.OfType<Photo>().All(p=>!VM.Selected!.UploadingPhotoIds.Contains(p.Id))) && count<VM.Selected!.Photos.Count;
-        CopyPhotosMenu.IsEnabled=editable || querying && count>0;ExcludePhotosMenu.IsEnabled=RemovePhotosMenu.IsEnabled=editable;
+        CopyPhotosMenu.IsEnabled=editable || querying && count>0;RemovePhotosMenu.IsEnabled=editable;
         RecyclePhotosMenu.IsEnabled=editable;
         CrashJournal.Trace("Menu.Photos",VM.Selected?.Id,count);
     }
