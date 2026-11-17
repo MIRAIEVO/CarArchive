@@ -1,0 +1,207 @@
+﻿品牌,车系,现有分类,新名称,原因
+Alfa Romeo,Giulia Sprint GT Veloce,Giulia Sprint GT Veloce (1st 3rd_Facelift),Giulia Sprint GT Veloce (1st 3rd Facelift),profile-0050 · Alfa Romeo / Giulia Sprint GT Veloce · 适用范围内格式一致；沿用已收录车型用词
+Alfa Romeo,Spider,Spider (1st 2nd_Facelift),Spider (1st 2nd Facelift),profile-0054 · Alfa Romeo / Spider · 适用范围内格式一致；沿用已收录车型用词
+Aston Martin,DB9,DB9 Coupe (2nd Facelift),DB9 Coupe (Facelift),profile-0100 · Aston Martin / DB9 · 适用范围内格式一致；沿用已收录车型用词
+Aston Martin,DB9,DB9 Volante (1st Facelift),DB9 Volante (Facelift),profile-0102 · Aston Martin / DB9 · 适用范围内格式一致；沿用已收录车型用词
+Aston Martin,Vantage,V8 Vantage Coupe (1st 2nd_Facelift),V8 Vantage Coupe (1st 2nd Facelift),profile-0119 · Aston Martin / Vantage · 适用范围内格式一致；沿用已收录车型用词
+Audi,A3,A3 Sportback (2nd 1st_Facelift),A3 Sportback (2nd 1st Facelift),profile-0165 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词
+Audi,A3,A3 Sportback (2nd 2nd_Facelift),A3 Sportback (2nd 2nd Facelift),profile-0165 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词
+Audi,A3,A3 Sportback 1.4T (2nd 2nd_Facelift),A3 Sportback 1.4T (2nd 2nd Facelift),profile-0169 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词
+Audi,A4,A4 Cabriolet (2nd),A4 Cabriolet,profile-0200 · Audi / A4 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；命名所需字段未确定：code
+Audi,A4,A4 Cabriolet (2nd),A4 Cabriolet,profile-0194 · Audi / A4 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；命名所需字段未确定：code
+Audi,A8,A8L (D3 2nd_Facelift),A8L (D3 2nd Facelift),profile-0262 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,A8,A8L 3.0 (D3 1st_Facelift),A8L 3.0 (D3 1st Facelift),profile-0263 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,A8,A8L 3.0 (D3 2nd_Facelift),A8L 3.0 (D3 2nd Facelift),profile-0263 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,A8,A8L 3.2 FSI (D3 1st_Facelift),A8L 3.2 FSI (D3 1st Facelift),profile-0265 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,A8,A8L 3.2 FSI (D3 2nd_Facelift),A8L 3.2 FSI (D3 2nd Facelift),profile-0265 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,A8,A8L W12 (D3 1st_Facelift),A8L W12 (D3 1st Facelift),profile-0273 · Audi / A8 · 适用范围内格式一致；Audi 补充要求：B/C/D 代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Audi,Q8,RS Q8 (1st),RS Q8,profile-0354 · Audi / Q8 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,RS3 Limousine (4th),RS3 Limousine,profile-0180 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,RS3 Sedan (4th),RS3 Sedan,profile-0182 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,RS3 Sedan (4th),RS3 Sedan,profile-0152 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,RS3 Sportback (3rd),RS3 Sportback,profile-0184 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,RS3 Sportback (4th),RS3 Sportback,profile-0184 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A1,S1 Sportback (1st),S1 Sportback,profile-0150 · Audi / A1 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,S3 Limousine (3rd),S3 Limousine,profile-0187 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,S3 Sedan (4th),S3 Sedan,profile-0189 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,S3 Sedan (4th),S3 Sedan,profile-0152 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,A3,S3 Sportback (3rd Facelift),S3 Sportback,profile-0191 · Audi / A3 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,Q2,SQ2 (1st),SQ2,profile-0386 · Audi / Q2 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,Q5,SQ5 (2nd Facelift),SQ5,profile-0314 · Audi / Q5 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,Q5,SQ5 Sportback (2nd Facelift),SQ5 Sportback,profile-0316 · Audi / Q5 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,Q5,SQ5 Sportback (2nd),SQ5 Sportback,profile-0316 · Audi / Q5 · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TT RS Coupe (2nd),TT RS Coupe,profile-0401 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TT S-line (2nd Facelift),TT S-line,profile-0403 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TT S-line competition (2nd Facelift),TT S-line competition,profile-0405 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TTS (2nd),TTS,profile-0407 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TTS (3rd Facelift),TTS,profile-0407 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Audi,TT,TTS (3rd),TTS,profile-0407 · Audi / TT · 适用范围内格式一致；Audi 补充要求：基础车系代次；沿用已收录车型用词；缺少对应基础车系代次映射，请核对；命名所需字段未确定：generation
+Austin-Healey,Sprite,Sprite (Mk1),Sprite (Mk 1),profile-0413 · Austin-Healey / Sprite · 适用范围内格式一致；沿用已收录车型用词
+BMW,3 Series,3 Series Sedan M Sport (G20 1st_LCI),3 Series Sedan M Sport (G20 1st LCI),profile-0527 · BMW / 3 Series · 适用范围内格式一致；BMW 补充要求：LCI；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+BMW,3 Series,3 Series Sedan M Sport (G20 1st_LCI),3 Series Sedan M Sport (G20 1st LCI),profile-0516 · BMW / 3 Series · 适用范围内格式一致；BMW 补充要求：LCI；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+BMW,3 Series,3 Series Touring M Sport (G21 1st_LCI),3 Series Touring M Sport (G21 1st LCI),profile-0529 · BMW / 3 Series · 适用范围内格式一致；BMW 补充要求：LCI；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+BMW,6 Series,6 Series Coupe Coupe (F13),6 Series Coupe (F13),profile-0567 · BMW / 6 Series · 适用范围内格式一致；BMW 补充要求：LCI；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chery,Tiggo 3,Tiggo 3 (1st 2nd_Facelift),Tiggo 3 (1st 2nd Facelift),profile-0861 · Chery / Tiggo 3 · 适用范围内格式一致；沿用已收录车型用词
+Chery,Tiggo 5x,Tiggo 5x (1st 2nd_Facelift),Tiggo 5x (1st 2nd Facelift),profile-0865 · Chery / Tiggo 5x · 适用范围内格式一致；沿用已收录车型用词
+Chevrolet,Chevy Van,Chevy Van 20 (3rd 1st_Facelift),Chevy Van 20 (3rd 1st Facelift),profile-0904 · Chevrolet / Chevy Van · 适用范围内格式一致；沿用已收录车型用词
+Chevrolet,Chevy Van,Chevy Van 20 (3rd 2nd_Facelift),Chevy Van 20 (3rd 2nd Facelift),profile-0904 · Chevrolet / Chevy Van · 适用范围内格式一致；沿用已收录车型用词
+Chevrolet,Corvette,Corvette Coupe (C6),Corvette (C6),profile-0910 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Corvette,Corvette Stingray Coupe (C7),Corvette Stingray (C7),profile-0913 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Corvette,Corvette Stingray Coupe (C8),Corvette Stingray (C8),profile-0913 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Corvette,Corvette Stingray Coupe Z51 Performance Package (C7),Corvette Stingray Z51 Performance Package (C7),profile-0914 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Corvette,Corvette Stingray Coupe Z51 Performance Package (C8),Corvette Stingray Z51 Performance Package (C8),profile-0914 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Corvette,Corvette Z06 Coupe (C7),Corvette Z06 (C7),profile-0916 · Chevrolet / Corvette · 适用范围内格式一致；代次字段未确定，请补充明确的1st、2nd等世代信息
+Chevrolet,Impala Custom Coupe,Impala Custom Coupe (4th 2nd_Facelift),Impala Custom Coupe (4th 2nd Facelift),profile-0924 · Chevrolet / Impala Custom Coupe · 适用范围内格式一致；沿用已收录车型用词
+Chevrolet,Suburban,Suburban Silverado (7th 1st_Facelift),Suburban Silverado (7th 1st Facelift),profile-0951 · Chevrolet / Suburban · 适用范围内格式一致；沿用已收录车型用词
+Daihatsu,Atrai Wagon,Atrai Wagon (5th 1st_Facelift),Atrai Wagon (5th 1st Facelift),profile-1007 · Daihatsu / Atrai Wagon · 适用范围内格式一致；沿用已收录车型用词
+DS,3,DS 3 (2nd Facelift),3 (2nd Facelift),profile-1183 · DS / 3 · 适用范围内格式一致；沿用已收录车型用词
+DS,4,DS 4 (2nd),4 (2nd),profile-1187 · DS / 4 · 适用范围内格式一致；沿用已收录车型用词
+Ford,E-350,E-350 (4th 2nd_Facelift),E-350 (4th 2nd Facelift),profile-1319 · Ford / E-350 · 适用范围内格式一致；沿用已收录车型用词
+Ford,Mustang,Mustang (5th 2nd_Facelift),Mustang (5th 2nd Facelift),profile-1332 · Ford / Mustang · 适用范围内格式一致；沿用已收录车型用词
+Honda,Freed,Freed (1st 1st_Facelift),Freed (1st 1st Facelift),profile-1539 · Honda / Freed · 适用范围内格式一致；沿用已收录车型用词
+Honda,Odyssey,Odyssey (5th 2nd_Facelift),Odyssey (5th 2nd Facelift),profile-1636 · Honda / Odyssey · 适用范围内格式一致；沿用已收录车型用词
+Hyundai,Coupe,Coupe (2nd 2nd_Facelift),Coupe (2nd 2nd Facelift),profile-1734 · Hyundai / Coupe · 适用范围内格式一致；沿用已收录车型用词
+Hyundai,Inster,Hyundai Inster (1st),Inster (1st),profile-1738 · Hyundai / Inster · 适用范围内格式一致；沿用已收录车型用词
+Jaguar,E-Type Series 3 V12,E-Type Series 3 V12 (1st 2nd_Facelift),E-Type Series 3 V12 (1st 2nd Facelift),profile-1841 · Jaguar / E-Type Series 3 V12 · 适用范围内格式一致；沿用已收录车型用词
+Jaguar,F-TYPE,F-Type Coupe (1st 2nd_Facelift),F-Type Coupe (1st 2nd Facelift),profile-1849 · Jaguar / F-TYPE · 适用范围内格式一致；沿用已收录车型用词
+Jeep,Grand Cherokee,Grand Cherokee (4th 1st_Facelift),Grand Cherokee (4th 1st Facelift),profile-1904 · Jeep / Grand Cherokee · 适用范围内格式一致；沿用已收录车型用词
+Kode,7,Kode 7,7,profile-1982 · Kode / 7 · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Kode,9,Kode 9,9,profile-1984 · Kode / 9 · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Land Rover,Range Rover,Range Rover (3rd 1st_Facelift),Range Rover (3rd 1st Facelift),profile-2072 · Land Rover / Range Rover · 适用范围内格式一致；沿用已收录车型用词
+Land Rover,Range Rover Evoque,Range Rover Evoque Convertible HSE Dynamic Convertible Black Design Pack (1st Facelift),Range Rover Evoque Convertible HSE Dynamic Black Design Pack (1st Facelift),profile-2091 · Land Rover / Range Rover Evoque · 适用范围内格式一致；沿用已收录车型用词
+Lexus,CT,CT 200h (1st 2nd_Facelift),CT 200h (1st 2nd Facelift),profile-2109 · Lexus / CT · 适用范围内格式一致；沿用已收录车型用词
+Lexus,IS,IS 300 F SPORT (3rd 2nd_Facelift),IS 300 F SPORT (3rd 2nd Facelift),profile-2141 · Lexus / IS · 适用范围内格式一致；沿用已收录车型用词
+Lexus,IS,IS 300h F SPORT (3rd 2nd_Facelift),IS 300h F SPORT (3rd 2nd Facelift),profile-2143 · Lexus / IS · 适用范围内格式一致；沿用已收录车型用词
+Lexus,IS,IS 500 F SPORT Performance (3rd 2nd_Facelift),IS 500 F SPORT Performance (3rd 2nd Facelift),profile-2147 · Lexus / IS · 适用范围内格式一致；沿用已收录车型用词
+Lexus,LS,LS 460 (4th 2nd_Facelift),LS 460 (4th 2nd Facelift),profile-2187 · Lexus / LS · 适用范围内格式一致；沿用已收录车型用词
+Lexus,LS,LS 600h (4th 2nd_Facelift),LS 600h (4th 2nd Facelift),profile-2195 · Lexus / LS · 适用范围内格式一致；沿用已收录车型用词
+Lexus,LX,LX 570 (3rd 2nd_Facelift),LX 570 (3rd 2nd Facelift),profile-2206 · Lexus / LX · 适用范围内格式一致；沿用已收录车型用词
+Maserati,Ghibli,Ghibli F Tributo Special Edition (3rd 2nd_Facelift),Ghibli F Tributo Special Edition (3rd 2nd Facelift),profile-2328 · Maserati / Ghibli · 适用范围内格式一致；沿用已收录车型用词
+Maserati,Ghibli,Ghibli Trofeo MC Edition (3rd 2nd_Facelift),Ghibli Trofeo MC Edition (3rd 2nd Facelift),profile-2330 · Maserati / Ghibli · 适用范围内格式一致；沿用已收录车型用词
+Maserati,GranTurismo,GranTurismo MC (1st 2nd_Facelift),GranTurismo MC (1st 2nd Facelift),profile-2335 · Maserati / GranTurismo · 适用范围内格式一致；沿用已收录车型用词
+Maserati,Quattroporte,Quattroporte (6th 2nd_Facelift),Quattroporte (6th 2nd Facelift),profile-2357 · Maserati / Quattroporte · 适用范围内格式一致；沿用已收录车型用词
+Mazda,Atenza,Atenza (3th),Atenza (3rd),profile-2372 · Mazda / Atenza · 适用范围内格式一致；沿用已收录车型用词
+Mazda,CX-5,CX-5 Road Patrol Car (2nd 2nd_Facelift),CX-5 Road Patrol Car (2nd 2nd Facelift),profile-2394 · Mazda / CX-5 · 适用范围内格式一致；沿用已收录车型用词
+Mazda,Mazda2,Mazda2 (3rd 2nd_Facelift),Mazda2 (3rd 2nd Facelift),profile-2420 · Mazda / Mazda2 · 适用范围内格式一致；沿用已收录车型用词
+Mazda,Roadster,Roadster (3rd 1st_Facelift),Roadster (3rd 1st Facelift),profile-2459 · Mazda / Roadster · 适用范围内格式一致；沿用已收录车型用词
+Mercedes-AMG,Concept AMG GT XX,Concept AMG GT XX,Concept GT XX,profile-2532 · Mercedes-AMG / Concept AMG GT XX · 适用范围内格式一致；明确补充：使用代号；代次字段未确定，请补充明确的1st、2nd等世代信息；命名所需字段未确定：code
+Mercedes-AMG,E-Class,E 60 (W124 2nd_Facelift),E 60 (W124 2nd Facelift),profile-2536 · Mercedes-AMG / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-AMG,GT 4-Door Coupe,GT 4-Door Coupe (1st),GT 4-Door Coupe,profile-2563 · Mercedes-AMG / GT 4-Door Coupe · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；命名所需字段未确定：code
+Mercedes-AMG,GT 63 Coupe AMG Aerodynamics Package,GT 63 Coupe AMG Aerodynamics Package (C192),GT 63 Coupe Aerodynamics Package (C192),profile-2575 · Mercedes-AMG / GT 63 Coupe AMG Aerodynamics Package · 适用范围内格式一致；明确补充：使用代号；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-AMG,S-Class,S 65 AMG (W222),S 65 (W222),profile-2592 · Mercedes-AMG / S-Class · 适用范围内格式一致；明确补充：使用代号；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,A-Class,A-Class A 160 (W169 Facelift),A-Class A160 (W169 Facelift),profile-2617 · Mercedes-Benz / A-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,A-Class,A-Class A 200 (W177),A-Class A200 (W177),profile-2618 · Mercedes-Benz / A-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,C-Class,C-Class C 220 d AMG Line (S205 Facelift),C-Class C220 d AMG Line (S205 Facelift),profile-2627 · Mercedes-Benz / C-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,C-Class,C-Class C 240 Estate (S202 Facelift),C-Class C240 Estate (S202 Facelift),profile-2628 · Mercedes-Benz / C-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,C-Class,C-Class C 250 Station Wagon (S205),C-Class C250 Station Wagon (S205),profile-2629 · Mercedes-Benz / C-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,C-Class,C-Class C 250 Station Wagon (S205),C-Class C250 Station Wagon (S205),profile-2622 · Mercedes-Benz / C-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,C-Class,C-Class C 300 L (V205),C-Class C300 L (V205),profile-2630 · Mercedes-Benz / C-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CL-Class,CL-Class CL 550 (C216),CL-Class CL550 (C216),profile-2642 · Mercedes-Benz / CL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLA-Class,CLA-Class CLA 200 d Coupe (C118),CLA-Class CLA200 d Coupe (C118),profile-2646 · Mercedes-Benz / CLA-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLA-Class,CLA-Class CLA 250 Sport Shooting Brake (X117),CLA-Class CLA250 Sport Shooting Brake (X117),profile-2647 · Mercedes-Benz / CLA-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLA-Class,CLA-Class CLA 260 (C117),CLA-Class CLA260 (C117),profile-2648 · Mercedes-Benz / CLA-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLK-Class,CLK-Class CLK 320 Coupe (C209),CLK-Class CLK320 Coupe (C209),profile-2654 · Mercedes-Benz / CLK-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLS-Class,CLS-Class CLS 300 (C218),CLS-Class CLS300 (C218),profile-2658 · Mercedes-Benz / CLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLS-Class,CLS-Class CLS 350 Shooting Brake Shooting Brake (X218),CLS-Class CLS350 Shooting Brake (X218),profile-2659 · Mercedes-Benz / CLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,CLS-Class,CLS-Class CLS Shooting Brake Shooting Brake AMG Sports Package (X218),CLS-Class CLS Shooting Brake AMG Sports Package (X218),profile-2660 · Mercedes-Benz / CLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class (W124 2nd_Facelift),E-Class (W124 2nd Facelift),profile-2663 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class Cabriolet (A124 2nd_Facelift),E-Class Cabriolet (A124 2nd Facelift),profile-2667 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class Cabriolet (A124 2nd_Facelift),E-Class Cabriolet (A124 2nd Facelift),profile-2662 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 200 (W214),E-Class E200 (W214),profile-2670 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 250 (A207 Facelift),E-Class E250 (A207 Facelift),profile-2671 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 260 L (V212 Facelift),E-Class E260 L (V212 Facelift),profile-2672 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 300 (W211),E-Class E300 (W211),profile-2673 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 300 L (V212),E-Class E300 L (V212),profile-2674 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 300 L (V213 Facelift),E-Class E300 L (V213 Facelift),profile-2674 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 300 Station Wagon (S214),E-Class E300 Station Wagon (S214),profile-2675 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 300 Station Wagon (S214),E-Class E300 Station Wagon (S214),profile-2662 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 320 (W210),E-Class E320 (W210),profile-2676 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 320 Estate (S124 2nd Facelift),E-Class E320 Estate (S124 2nd Facelift),profile-2677 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 350 Cabriolet (A207),E-Class E350 Cabriolet (A207),profile-2678 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class E 350 Cabriolet (A207),E-Class E350 Cabriolet (A207),profile-2662 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,E-Class,E-Class Estate (S124 1st_Facelift),E-Class Estate (S124 1st Facelift),profile-2680 · Mercedes-Benz / E-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,G-Class,G-Class G 500 (W463),G-Class G500 (W463),profile-2712 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,G-Class,G-Class G 500 Cabriolet (W463 Facelift),G-Class G500 Cabriolet (W463 Facelift),profile-2713 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,G-Class,G-Class G 500 Cabriolet (W463 Facelift),G-Class G500 Cabriolet (W463 Facelift),profile-2709 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,G-Class,G-Class G 500 Short Wheelbase (W463),G-Class G500 Short Wheelbase (W463),profile-2714 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,G-Class,"G-Class G 550 (1st 3rd_Facelift, W463)",G-Class G550 (W463 3rd Facelift),profile-2716 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词
+Mercedes-Benz,G-Class,G-Class G 63 AMG (W463 Facelift),G-Class G63 AMG (W463 Facelift),profile-2717 · Mercedes-Benz / G-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,GL-Class,GL-Class GL 450 (X164 Facelift),GL-Class GL450 (X164 Facelift),profile-2720 · Mercedes-Benz / GL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,GL-Class,GL-Class GL 450 (X166),GL-Class GL450 (X166),profile-2720 · Mercedes-Benz / GL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,GL-Class,GL-Class GL 550 (X166),GL-Class GL550 (X166),profile-2721 · Mercedes-Benz / GL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,GLS-Class,GLS-Class GLS 400 d (X167),GLS-Class GLS400 d (X167),profile-2735 · Mercedes-Benz / GLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,GLS-Class,GLS-Class GLS 600 (X167 Facelift),GLS-Class GLS600 (X167 Facelift),profile-2736 · Mercedes-Benz / GLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,MB 100,MB 100 (2nd),MB 100,profile-2742 · Mercedes-Benz / MB 100 · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；命名所需字段未确定：code
+Mercedes-Benz,S-Class,S-Class S 350 (W221),S-Class S350 (W221),profile-2750 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 350 L (V221 Facelift),S-Class S350 L (V221 Facelift),profile-2751 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 400 (W222),S-Class S400 (W222),profile-2752 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 400 HYBRID (W221 Facelift),S-Class S400 HYBRID (W221 Facelift),profile-2753 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 400 HYBRID (W222),S-Class S400 HYBRID (W222),profile-2753 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 400 L (V223),S-Class S400 L (V223),profile-2754 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 450 (W222 Facelift),S-Class S450 (W222 Facelift),profile-2755 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 500 (W223 Facelift),S-Class S500 (W223 Facelift),profile-2756 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 500 L (V221 Facelift),S-Class S500 L (V221 Facelift),profile-2757 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 500 L Lorinser (V221 Facelift),S-Class S500 L Lorinser (V221 Facelift),profile-2758 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 550 (W221),S-Class S550 (W221),profile-2759 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 600 (V221),S-Class S600 (V221),profile-2760 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 600 (W220 Facelift),S-Class S600 (W220 Facelift),profile-2760 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 600 (W221 Facelift),S-Class S600 (W221 Facelift),profile-2760 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 600 (W221),S-Class S600 (W221),profile-2760 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,S-Class,S-Class S 600 L (V221),S-Class S600 L (V221),profile-2761 · Mercedes-Benz / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,SL-Class,SL-Class (R230 1st_Facelift),SL-Class (R230 1st Facelift),profile-2764 · Mercedes-Benz / SL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,SL-Class,SL-Class SL 350 (R230 2nd Facelift),SL-Class SL350 (R230 2nd Facelift),profile-2767 · Mercedes-Benz / SL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,SL-Class,SL-Class SL 400 AMG Line (R231),SL-Class SL400 AMG Line (R231),profile-2768 · Mercedes-Benz / SL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,SLC-Class,SLC-Class SLC 180 Sports (R172 Facelift),SLC-Class SLC180 Sports (R172 Facelift),profile-2771 · Mercedes-Benz / SLC-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,SLK-Class,SLK-Class (2nd),SLK-Class,profile-2775 · Mercedes-Benz / SLK-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；命名所需字段未确定：code
+Mercedes-Benz,SLK-Class,SLK-Class SLK 200 (R172),SLK-Class SLK200 (R172),profile-2776 · Mercedes-Benz / SLK-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,V-Class,V-Class (W447 1st_Facelift),V-Class (W447 1st Facelift),profile-2784 · Mercedes-Benz / V-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Benz,V-Class,V-Class AMG Line (W447 1st_Facelift),V-Class AMG Line (W447 1st Facelift),profile-2785 · Mercedes-Benz / V-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,GLS-Class,GLS-Class GLS 600 (X167 Facelift),GLS-Class GLS600 (X167 Facelift),profile-2793 · Mercedes-Maybach / GLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,GLS-Class,GLS-Class GLS 600 (X167),GLS-Class GLS600 (X167),profile-2793 · Mercedes-Maybach / GLS-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 400 (X222),S-Class S400 (X222),profile-2796 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 480 (Z223),S-Class S480 (Z223),profile-2797 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 580 (Z223),S-Class S580 (Z223),profile-2798 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 600 (X222),S-Class S600 (X222),profile-2799 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 650 Pullman (VV222 Facelift),S-Class S650 Pullman (VV222 Facelift),profile-2800 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,S-Class,S-Class S 680 (Z223),S-Class S680 (Z223),profile-2801 · Mercedes-Maybach / S-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mercedes-Maybach,SL-Class,SL-Class SL 680 Monogram Series (R232),SL-Class SL680 Monogram Series (R232),profile-2803 · Mercedes-Maybach / SL-Class · 适用范围内格式一致；明确补充：使用代号；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Mini,Convertible John Cooper Works,Convertible John Cooper Works (3rd 2nd_Facelift),Convertible John Cooper Works (3rd 2nd Facelift),profile-2815 · Mini / Convertible John Cooper Works · 适用范围内格式一致；沿用已收录车型用词
+Mini,Cooper,Cooper (3rd 1st_Facelift),Cooper (3rd 1st Facelift),profile-2822 · Mini / Cooper · 适用范围内格式一致；沿用已收录车型用词
+MV Agusta,F4 1000,MV Agusta F4 1000 (2nd later),F4 1000 (2nd Late),profile-2965 · MV Agusta / F4 1000 · 适用范围内格式一致；沿用已收录车型用词
+Nissan,180SX,180SX (S13 2nd_Facelift),180SX (S13 2nd Facelift),profile-2979 · Nissan / 180SX · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Nissan,Fairlady Z,Fairlady Z (3st),Fairlady Z (3rd),profile-3062 · Nissan / Fairlady Z · 适用范围内格式一致；沿用已收录车型用词
+Nissan,GT-R,GT-R (R35 1st_Facelift),GT-R (R35 1st Facelift),profile-3084 · Nissan / GT-R · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Nissan,GT-R,GT-R (R35 2nd_Facelift),GT-R (R35 2nd Facelift),profile-3084 · Nissan / GT-R · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Nissan,GT-R,GT-R NISMO (R35 1st_Facelift),GT-R NISMO (R35 1st Facelift),profile-3086 · Nissan / GT-R · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Nissan,NV350 Caravan,NV350 Caravan (5th 1st_Facelift),NV350 Caravan (5th 1st Facelift),profile-3151 · Nissan / NV350 Caravan · 适用范围内格式一致；沿用已收录车型用词
+Nissan,Skyline Crossover,Skyline Crossover (1th),Skyline Crossover (1st),profile-3228 · Nissan / Skyline Crossover · 适用范围内格式一致；沿用已收录车型用词
+Nissan,Skyline,Skyline GT-R (R32),Skyline GT-R (bnr32),profile-3220 · Nissan / Skyline · 适用范围内格式一致；沿用已收录车型用词
+Nissan,Sunny Truck,Sunny Truck (2nd 2nd_Facelift),Sunny Truck (2nd 2nd Facelift),profile-3242 · Nissan / Sunny Truck · 适用范围内格式一致；沿用已收录车型用词
+Oshkosh,Firefighter,Oshkosh Firefighter,Firefighter,profile-3282 · Oshkosh / Firefighter · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Porsche,Macan,Macan (1st 1st_Facelift),Macan (1st 1st Facelift),profile-3394 · Porsche / Macan · 适用范围内格式一致；沿用已收录车型用词
+Porsche,Macan,Macan (1st 2nd_Facelift),Macan (1st 2nd Facelift),profile-3394 · Porsche / Macan · 适用范围内格式一致；沿用已收录车型用词
+Porsche,Macan,Macan GTS (1st 2nd_Facelift),Macan GTS (1st 2nd Facelift),profile-3399 · Porsche / Macan · 适用范围内格式一致；沿用已收录车型用词
+Porsche,Macan,Macan Turbo (1st 1st_Facelift),Macan Turbo (1st 1st Facelift),profile-3403 · Porsche / Macan · 适用范围内格式一致；沿用已收录车型用词
+Renault,Megane R.S. 275 Trophy,Megane R.S. 275 Trophy (3rd 2nd_Facelift),Megane R.S. 275 Trophy (3rd 2nd Facelift),profile-3445 · Renault / Megane R.S. 275 Trophy · 适用范围内格式一致；沿用已收录车型用词
+Renoca,EURO BOX,Renoca EURO BOX (1st Facelift),EURO BOX (1st Facelift),profile-3449 · Renoca / EURO BOX · 适用范围内格式一致；沿用已收录车型用词
+Rolls-Royce,Silver Spirit,Silver Spirit (1st),Silver Spirit,profile-3511 · Rolls-Royce / Silver Spirit · 适用范围内格式一致；老款 Rolls-Royce 使用生产年份范围；沿用已收录车型用词；命名所需字段未确定：years
+Subaru,360,Subaru 360 (1st Facelift),360 (1st Facelift),profile-3667 · Subaru / 360 · 适用范围内格式一致；沿用已收录车型用词
+Subaru,XC,Subaru XC Hybrid (1st),XC Hybrid (1st),profile-3671 · Subaru / XC · 适用范围内格式一致；沿用已收录车型用词
+Suzuki,Jimny,Jimny Land Venture (3rd 2nd_Facelift),Jimny Land Venture (3rd 2nd Facelift),profile-3751 · Suzuki / Jimny · 适用范围内格式一致；沿用已收录车型用词
+Tesla,Model S,Model S (1st 1st_Facelift),Model S (1st 1st Facelift),profile-3823 · Tesla / Model S · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Aqua,Aqua (1st 2nd_Facelift),Aqua (1st 2nd Facelift),profile-3863 · Toyota / Aqua · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Corolla,Corolla Fielder Hybrid (11th 1st_Facelift),Corolla Fielder Hybrid (11th 1st Facelift),profile-3946 · Toyota / Corolla · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Hilux,Hilux GR SPORT (8th 2nd_Facelift),Hilux GR SPORT (8th 2nd Facelift),profile-4049 · Toyota / Hilux · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Land Cruiser,Land Cruiser 150 (2nd_Facelift),Land Cruiser 150 (Facelift),profile-4085 · Toyota / Land Cruiser · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Land Cruiser,Land Cruiser 150 Patrol (1st Facelift),Land Cruiser 150 Patrol (Facelift),profile-4087 · Toyota / Land Cruiser · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Land Cruiser,Land Cruiser 150 TX L Package Matt Black Edition (2nd_Facelift),Land Cruiser 150 TX L Package Matt Black Edition (Facelift),profile-4089 · Toyota / Land Cruiser · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Land Cruiser,Land Cruiser FJ (1st),Land Cruiser FJ,profile-4100 · Toyota / Land Cruiser · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Mark X GRMN,Mark X GRMN (2nd 1st_Facelift),Mark X GRMN (2nd 1st Facelift),profile-4114 · Toyota / Mark X GRMN · 适用范围内格式一致；沿用已收录车型用词
+Toyota,C+pod,Toyota C+pod,C+pod,profile-4265 · Toyota / C+pod · 适用范围内格式一致；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息
+Toyota,Caldina,Toyota Caldina (2nd Faceclift),Caldina (2nd Facelift),profile-4269 · Toyota / Caldina · 适用范围内格式一致；沿用已收录车型用词
+Toyota,Voxy,Voxy Hybrid (3th Facelift),Voxy Hybrid (3rd Facelift),profile-4308 · Toyota / Voxy · 适用范围内格式一致；沿用已收录车型用词
+Volkswagen,Golf,Golf Cabriolet Cabriolet (1st Facelift),Golf Cabriolet (1st Facelift),profile-4365 · Volkswagen / Golf · 适用范围内格式一致；沿用已收录车型用词
+Volkswagen,Golf,Golf Cabriolet Cabriolet (1st Facelift),Golf Cabriolet (1st Facelift),profile-4357 · Volkswagen / Golf · 适用范围内格式一致；沿用已收录车型用词
+Volkswagen,Transporter,Transporter (3th),Transporter (3rd),profile-4500 · Volkswagen / Transporter · 适用范围内格式一致；沿用已收录车型用词
+Volvo,240 Estate,240 Estate (1st 2nd_Facelift),240 Estate (1st 2nd Facelift),profile-4530 · Volvo / 240 Estate · 适用范围内格式一致；沿用已收录车型用词
+Volvo,V70,V70 (P26 Facelift),V70,profile-4561 · Volvo / V70 · 同票且无可区分确认记录，采用默认格式；沿用已收录车型用词；代次字段未确定，请补充明确的1st、2nd等世代信息；命名所需字段未确定：generation

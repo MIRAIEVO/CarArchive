@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -6,7 +6,7 @@ namespace CarArchive.Core;
 
 public sealed class NamingGuide
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
     public int Version { get; set; } = CurrentVersion;
     private NamingGuideIndex? index;
     // A guide is a snapshot: rebuild/replace it when its sources change.
@@ -190,6 +190,9 @@ public static partial class NamingText
     }
     public static string Family(string brand,string series,string model)
     {
+        var normalized=NamingFamily.Normalize(brand,model);
+        if(normalized.Length>0)return normalized;
+
         var text=StripBrand(RemoveRepeatedBodyTerms(model),brand);
         var s=Key(series);var b=PolicyBrand(brand);
         if(b=="rolls royce") text=Regex.Replace(text,@"^Black Badge\s+","",RegexOptions.IgnoreCase);

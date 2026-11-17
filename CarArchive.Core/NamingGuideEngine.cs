@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace CarArchive.Core;
 
@@ -13,8 +13,10 @@ public static class NamingGuideEngine
         var model=LatinText.English(NamingText.FullModel(car));
         var family=NamingText.Family(brand,car.Series,model);
         var generation=NamingText.Generation(car.Generation);
+        if(generation.Length==0)warnings.Add("代次字段未确定，请补充明确的1st、2nd等世代信息");
         var code=NamingText.Clean(car.Code);
         var phase=NamingText.Phase(car.Phase);
+        if(RevisionEvidence.Warning(car) is { } revisionWarning)warnings.Add(revisionWarning);
         var years=NamingText.Years(car.ProductionYears);
         var brandKey=NamingText.Key(brand);
         var b=NamingText.PolicyBrand(brand);
@@ -55,7 +57,7 @@ public static class NamingGuideEngine
         var profile=guide?.Index.Profiles(brandKey,family).Where(p=>(p.Generation.Length==0 || p.Generation==generation)
                 && (p.Model.Length==0 || p.Model==modelKey || exact.Any(e=>NamingText.Key(e.Model)==p.Model)))
             .OrderByDescending(p=>(p.Model.Length>0?2:0)+(p.Generation.Length>0?1:0)).ThenByDescending(p=>p.Votes).FirstOrDefault();
-        var style=profile?.Style is { Length:>0 } knownStyle?knownStyle:"{generation} {phase}";
+        var style=profile is not null?profile.Style:"{generation} {phase}";
         var reason=profile is null?"默认：完整型号＋代次／改款":profile.Id+" · "+profile.Brand+" / "+profile.Family+" · "+profile.Resolution;
         style=LocalNamingLearning.SuffixStyle(car,state,style,out var learnedSuffix);
         if(learnedSuffix.Length>0) reason=learnedSuffix;
@@ -102,6 +104,27 @@ public static class NamingGuideEngine
             }
             else if(code.Length==0) { style="{generation} {phase}";warnings.Add("911 代号未确定，未推测 .1/.2"); }
         }
+
+        style=NamingSupplementRules.Suffix(brand,family,model)??style;
+        if(b=="chevrolet" && family.Equals("Corvette",StringComparison.OrdinalIgnoreCase))model=NamingText.Clean(Regex.Replace(model,@"\bCoupe\b","",RegexOptions.IgnoreCase));
+        if(b=="mazda")model=Regex.Replace(model,@"^(?:Mazda\s*)?([236])(?=\s|$)","Mazda$1",RegexOptions.IgnoreCase);
+        if(b=="toyota" && Regex.IsMatch(model,@"^(?:Land Cr[ui]+ser|Prado)\b",RegexOptions.IgnoreCase))
+        {
+            style="{phase}";
+            var seriesNumber=Regex.Match(model,@"\b(?:40|60|70|80|90|100|120|150|200|250|300)\b");
+            if(!seriesNumber.Success)seriesNumber=Regex.Match(code,@"(?:40|60|70|80|90|100|120|150|200|250|300)(?=[A-Z]?$)",RegexOptions.IgnoreCase);
+            if(seriesNumber.Success)
+            {
+                model=Regex.Replace(model,@"^(?:Land Cr[ui]+ser(?: Prado)?|Prado)(?:\s+"+seriesNumber.Value+@")?","Land Cruiser "+seriesNumber.Value,RegexOptions.IgnoreCase);
+            }
+        }
+        if(b=="jaguar" && Regex.IsMatch(model,@"^XJ",RegexOptions.IgnoreCase))
+        {
+            var legacyGeneration=code.ToUpperInvariant() switch {"XJ40"=>"4th","X300"=>"5th","X308"=>"6th","X350" or "X358"=>"7th","X351"=>"8th",_=>""};
+            if(legacyGeneration.Length>0){generation=legacyGeneration;reason+="；Jaguar补充要求：XJ计入历史世代";}
+        }
+        var localModel=LocalModelSpelling.Resolve(NamingPolicies.Model(model,family,policy),brand,family,code,generation,guide);
+        if(localModel is not null){model=localModel;reason+="；沿用已收录车型用词";}
 
         // Vocabulary rules are local and cannot change the chosen suffix policy.
         var rules=state.Rules.Select((rule,index)=>(rule,index)).Where(x=>x.rule.Enabled && x.rule.From.Length>0

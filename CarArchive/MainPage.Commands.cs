@@ -13,7 +13,7 @@ public sealed partial class MainPage
     private static int CurrentModifiers()=>((GetKeyState(17)&0x8000)!=0?1:0)|((GetKeyState(18)&0x8000)!=0?2:0)|((GetKeyState(16)&0x8000)!=0?4:0);
     private static bool DescendantOf(DependencyObject? node,DependencyObject ancestor)
     { for(;node is not null;node=VisualTreeHelper.GetParent(node)) if(ReferenceEquals(node,ancestor)) return true;return false; }
-    private bool ModalOpen()=>XamlRoot is not null && VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Any(p=>p.Child is { } child && VisualChild<ContentDialog>(child) is not null);
+    private bool ModalOpen()=>pasteIdentityOpen || XamlRoot is not null && VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Any(p=>p.Child is { } child && VisualChild<ContentDialog>(child) is not null);
     private bool TextEditing()=>FocusManager.GetFocusedElement(XamlRoot) is DependencyObject focused && (focused is TextBox or PasswordBox or RichEditBox || AncestorInput(focused));
     private static bool AncestorInput(DependencyObject node)
     { for(var p=VisualTreeHelper.GetParent(node);p is not null;p=VisualTreeHelper.GetParent(p)) if(p is TextBox or PasswordBox or RichEditBox) return true;return false; }
@@ -22,8 +22,8 @@ public sealed partial class MainPage
     {
         if(!initialized || ModalOpen()) return false;
         return id switch {
-            "recognize"=>VM.SelectedEditable,"verify"=>VM.Selected is { Photos.Count:>0 },
-            "archive"=>VM.SelectedEditable && VM.State.Settings.ArchiveRoot.Length>0,
+            "recognize"=>VM.SelectedCanRecognize,"verify"=>VM.Selected is { Photos.Count:>0 },
+            "archive"=>VM.SelectedCanArchiveAction && (VM.Selected?.Archived==true || VM.State.Settings.ArchiveRoot.Length>0),
             "redoEdit"=>VM.CanEditHistory(null,true) || VM.Store.Jobs().Any(j=>j.Status=="Undone" && VM.Groups.Any(g=>g.Id==j.GroupId)),
             "previous" or "next"=>VM.Groups.Count>0,
             "removeGroups"=>!VM.Busy && GroupList.SelectedItems.OfType<PhotoGroup>().Any() && GroupList.SelectedItems.OfType<PhotoGroup>().All(g=>!g.IsWorking),
@@ -38,7 +38,7 @@ public sealed partial class MainPage
         if(id=="archive" && suggestionOwner is { } owner && suggestionsList?.SelectedItem is CategorySuggestion selected) AcceptSuggestion(owner,selected);
         if(id is not ("previous" or "next")) CloseAllSuggestions();
         switch(id) {
-            case "recognize":QueryGroupAsync(false).Forget(VM);break;
+            case "recognize":if(VM.Selected is {IsWorking:true,TaskKind:"联网识别"}) Cancel_Click(sender,e);else QueryGroupAsync(false).Forget(VM);break;
             case "verify":CopyVerificationAsync().Forget(VM);break;
             case "redoEdit":GlobalRedoAsync().Forget(VM);break;
             case "previous":LocalAction(()=>VM.Navigate(-1),false);break;case "next":LocalAction(()=>VM.Navigate(1),false);break;
@@ -59,7 +59,7 @@ public sealed partial class MainPage
     private void RefreshCommandHints()
     {
         foreach(var button in AnalysisBar.PrimaryCommands.OfType<AppBarButton>())
-        { var id=button.Label=="Gemini识别"?"recognize":button.Label=="复制框选图片"?"verify":null;if(id is not null) ToolTipService.SetToolTip(button,button.Label+" · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,id))); }
+        { var id=ReferenceEquals(button,RecognizeActionButton)?"recognize":button.Label=="复制框选图片"?"verify":null;if(id is not null) ToolTipService.SetToolTip(button,button.Label+" · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,id))); }
         ToolTipService.SetToolTip(ArchiveActionButton,"确认命名并移动 · "+InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"archive")));
         DeleteGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removeGroups"));RemovePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"removePhotos"));
         RecycleGroupsMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recycleGroups"));RecyclePhotosMenu.KeyboardAcceleratorTextOverride=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,"recyclePhotos"));
@@ -82,14 +82,19 @@ public sealed partial class MainPage
             var clear=new Button { Content="清除" };Grid.SetColumn(clear,2);row.Children.Add(clear);clear.Click+=(_,_)=> { VM.State.Settings.Shortcuts[command.Id]=new(0,0);edit.Text="未设置";VM.SaveHeader();RefreshCommandHints(); };panel.Children.Add(row);
         }
         var resetKeys=new Button { Content="恢复默认快捷键" };resetKeys.Click+=(_,_)=> { VM.State.Settings.Shortcuts=InteractionSettings.Defaults();foreach(var pair in edits) pair.Value.Text=InteractionSettings.Format(InteractionSettings.Get(VM.State.Settings,pair.Key));VM.SaveHeader();RefreshCommandHints();status.Text="已恢复默认快捷键。"; };panel.Children.Add(resetKeys);panel.Children.Add(status);
+        return panel;
+    }
+    private FrameworkElement BuildConfirmationSettingsPanel()
+    {
         var confirms=new StackPanel { Spacing=6 };var toggles=new Dictionary<string,CheckBox>();
         foreach(var choice in InteractionSettings.Confirmations)
         {
-            var toggle=new CheckBox { Content=choice.Value,IsChecked=!VM.State.Settings.SkippedConfirmations.Contains(choice.Key) && (choice.Key!="learnRule" || VM.State.Settings.Learning!=LearningMode.Automatic) };toggles[choice.Key]=toggle;
-            toggle.Click+=(_,_)=> { if(toggle.IsChecked==true) VM.State.Settings.SkippedConfirmations.Remove(choice.Key);else VM.State.Settings.SkippedConfirmations.Add(choice.Key);if(choice.Key=="learnRule") VM.State.Settings.Learning=toggle.IsChecked==true?LearningMode.ConfirmRules:LearningMode.Automatic;VM.SaveHeader(); };confirms.Children.Add(toggle);
+            var toggle=new CheckBox { Content="不再显示 · "+choice.Value,IsChecked=VM.State.Settings.SkippedConfirmations.Contains(choice.Key) || choice.Key=="learnRule" && VM.State.Settings.Learning==LearningMode.Automatic };toggles[choice.Key]=toggle;
+            void SaveConfirmation(object sender,RoutedEventArgs args) { if(toggle.IsChecked==true) VM.State.Settings.SkippedConfirmations.Add(choice.Key);else VM.State.Settings.SkippedConfirmations.Remove(choice.Key);if(choice.Key=="learnRule") VM.State.Settings.Learning=toggle.IsChecked==true?LearningMode.Automatic:LearningMode.ConfirmRules;VM.SaveHeader(); }
+            toggle.Checked+=SaveConfirmation;toggle.Unchecked+=SaveConfirmation;confirms.Children.Add(toggle);
         }
-        var resetPrompts=new Button { Content="恢复全部确认提示" };resetPrompts.Click+=(_,_)=> { VM.State.Settings.SkippedConfirmations.Clear();foreach(var toggle in toggles.Values) toggle.IsChecked=true;if(VM.State.Settings.Learning==LearningMode.Automatic) VM.State.Settings.Learning=LearningMode.ConfirmRules;VM.SaveHeader(); };confirms.Children.Add(resetPrompts);
-        panel.Children.Add(new Expander { Header="执行前确认（勾选表示显示确认）",Content=confirms,HorizontalAlignment=HorizontalAlignment.Stretch });return panel;
+        var resetPrompts=new Button { Content="恢复全部确认提示" };resetPrompts.Click+=(_,_)=> { VM.State.Settings.SkippedConfirmations.Clear();foreach(var toggle in toggles.Values) toggle.IsChecked=false;if(VM.State.Settings.Learning==LearningMode.Automatic) VM.State.Settings.Learning=LearningMode.ConfirmRules;VM.SaveHeader(); };confirms.Children.Add(resetPrompts);
+        return confirms;
     }
 }
 internal static class UiTaskExtensions

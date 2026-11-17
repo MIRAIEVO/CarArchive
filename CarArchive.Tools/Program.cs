@@ -1,9 +1,26 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using CarArchive.Core;
 using CarArchive.Tools;
 
 Console.OutputEncoding=System.Text.Encoding.UTF8;
+if(args is ["probe-guide",var guidePath,var probeOutput]) {
+ var probeGuide=JsonSerializer.Deserialize<NamingGuide>(File.ReadAllText(guidePath),StateStore.Json)!;
+ var probeNamer=new NamingService {Guide=probeGuide};var probeState=new WorkspaceState();
+ var probeRows=new List<object>();
+ foreach(var entry in probeGuide.Inventory) {
+  var car=new CarIdentity {Brand=entry.Brand,Series=entry.Family,Variant=entry.Model,Code=entry.RawCode.Length>0?entry.RawCode:entry.Code,Generation=entry.Generation,Phase=entry.Phase,Package=entry.Package,ProductionYears=entry.ProductionYears};
+  var variants=new[]{entry.Model,entry.Model.Replace("Cabriolet","Convertible").Replace("Station Wagon","Estate"),entry.Model.Replace("Sedan","Saloon")}.Distinct().ToArray();
+  foreach(var variant in variants) {car.Variant=variant;var result=probeNamer.Suggest(car,probeState,[]);probeRows.Add(new {entry.Brand,entry.Family,Original=entry.Folder,Identity=car.Clone(),Default=NamingService.DefaultName(car),Generated=result.Name,Rule=result.Reason,Matches=result.Name==entry.Folder});}
+ }
+ Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(probeOutput))!);File.WriteAllText(probeOutput,JsonSerializer.Serialize(probeRows,StateStore.Json));Console.WriteLine(JsonSerializer.Serialize(new {Entries=probeGuide.Inventory.Count,Probes=probeRows.Count}));return 0;
+}
+if(args is ["refresh-shipped",var archiveRoot,var sourceData,var resources]) {
+ var source=ReadOnlyWorkspaceSnapshot.Load(sourceData);source.State.Settings.ArchiveRoot=archiveRoot;
+ var built=NamingGuideBuilder.Build(archiveRoot,source.State,source.Jobs);var portable=BuiltInNamingGuide.PortableSnapshot(built);
+ Directory.CreateDirectory(resources);NamingGuideStore.Save(resources,portable,source.State);
+ Console.WriteLine(JsonSerializer.Serialize(new {Folders=portable.Inventory.Count,Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Rules=portable.Profiles.Count,Notes=portable.Notes.Count,Warnings=portable.Warnings.Count}));return 0;
+}
 if(args is ["export-shipped",var data,var destination]) {
  var exportSnapshot=ReadOnlyWorkspaceSnapshot.Load(data);
  var built=NamingGuideBuilder.Build(exportSnapshot.State.Settings.ArchiveRoot,exportSnapshot.State,exportSnapshot.Jobs);

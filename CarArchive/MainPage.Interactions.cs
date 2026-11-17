@@ -79,10 +79,41 @@ public sealed partial class MainPage
             menu.Closed+=(_,_)=> {if(activeContextMenu==menu)activeContextMenu=null;};
         }
     }
+    private PhotoGroup? lastMergeSelection;
+    private ScrollViewer? mergeScroll;
+    private PhotoGroup? mergeAnchorGroup;
+    private double mergeAnchorContentY,mergeAnchorHeight;
+    private void TrackMergeSelection(SelectionChangedEventArgs args)
+    {
+        lastMergeSelection=args.AddedItems.OfType<PhotoGroup>().LastOrDefault() ?? lastMergeSelection;
+        if(lastMergeSelection is null || !GroupList.SelectedItems.Contains(lastMergeSelection))
+            lastMergeSelection=GroupList.SelectedItems.OfType<PhotoGroup>().LastOrDefault();
+    }
+    private void InitializeMergeTracking()
+    {
+        if(VisualChild<ScrollViewer>(GroupList) is { } scroll) {mergeScroll=scroll;scroll.ViewChanged+=(_,_)=>UpdateMergeSelection();}
+        GroupList.SizeChanged+=(_,_)=>UpdateMergeSelection();
+        GroupList.ContainerContentChanging+=(_,_)=>DispatcherQueue.TryEnqueue(UpdateMergeSelection);
+    }
     private void UpdateMergeSelection()
     {
+        MergeSelectionButton.Visibility=Visibility.Collapsed;
         var groups=GroupList.SelectedItems.OfType<PhotoGroup>().ToArray();
-        MergeSelectionButton.Visibility=groups.Length>=2 && groups.All(g=>g.Editable)?Visibility.Visible:Visibility.Collapsed;
+        if(groups.Length<2 || groups.Any(group=>!group.Editable)) return;
+        var last=lastMergeSelection is not null && groups.Contains(lastMergeSelection)?lastMergeSelection:groups.Last();
+        double rowY,rowHeight;
+        if(GroupList.ContainerFromItem(last) is ListViewItem item && item.ActualHeight>0)
+        {
+            rowY=item.TransformToVisual(QueuePane).TransformPoint(new Windows.Foundation.Point()).Y;rowHeight=item.ActualHeight;
+            mergeAnchorGroup=last;mergeAnchorContentY=rowY+(mergeScroll?.VerticalOffset??0);mergeAnchorHeight=rowHeight;
+        }
+        else if(mergeAnchorGroup==last)
+        {
+            rowY=mergeAnchorContentY-(mergeScroll?.VerticalOffset??0);rowHeight=mergeAnchorHeight;
+        }
+        else return;
+        var top=Math.Clamp(rowY+(rowHeight-30)/2,0,Math.Max(0,QueuePane.ActualHeight-30));
+        MergeSelectionButton.Margin=new Thickness(0,top,12,0);MergeSelectionButton.Visibility=Visibility.Visible;
     }
     private void Group_ContextRequested(UIElement sender,ContextRequestedEventArgs args)
     {

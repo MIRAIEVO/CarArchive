@@ -45,7 +45,7 @@ public class PhotoReference : Observable
     public string OriginalPath { get; set; } = "";
     public string Path { get; set; } = "";
     public DateTimeOffset? CapturedAt { get; set; }
-    private string previewPath = "", thumbnailPath = "", error = "";
+    private string previewPath = "", thumbnailPath = "", error = "", notifiedThumbnailPath = "";
     public string PreviewPath { get => Asset?.PreviewPath ?? previewPath; set { previewPath=value; if(Asset is not null) Asset.PreviewPath=value; Notify(); } }
     public string ThumbnailPath { get => Asset?.ThumbnailPath ?? thumbnailPath; set { thumbnailPath=value; if(Asset is not null) Asset.ThumbnailPath=value; Notify(nameof(ThumbnailUri)); } }
     public string Error { get => Asset?.Error ?? error; set { error=value; if(Asset is not null) Asset.Error=value; Notify(nameof(Caption)); } }
@@ -63,7 +63,14 @@ public class PhotoReference : Observable
         Asset=asset; AssetId=asset.Id; Asset.PropertyChanged+=AssetChanged;
         CapturedAt=asset.CapturedAt ?? CapturedAt; AssetChanged(this,new(""));
     }
-    private void AssetChanged(object? sender,PropertyChangedEventArgs e) { CapturedAt=Asset?.CapturedAt ?? CapturedAt;if(e.PropertyName==nameof(ImageAsset.CapturedAt))return; Notify(nameof(ThumbnailUri)); Notify(nameof(PreviewPath)); Notify(nameof(Caption)); }
+    private void AssetChanged(object? sender,PropertyChangedEventArgs e)
+    {
+        CapturedAt=Asset?.CapturedAt ?? CapturedAt;
+        if(e.PropertyName==nameof(ImageAsset.CapturedAt))return;
+        if(notifiedThumbnailPath!=ThumbnailPath){notifiedThumbnailPath=ThumbnailPath;Notify(nameof(ThumbnailUri));}
+        Notify(nameof(PreviewPath));Notify(nameof(Caption));
+    }
+
 }
 public sealed class Photo : PhotoReference
 {
@@ -186,6 +193,7 @@ public sealed class AppSettings
 {
     public bool UploadMultiple { get; set; }
     public bool ImportVideos { get; set; } = true;
+    public bool AutoApplyPastedJson { get; set; }
     public string ArchiveRoot { get; set; } = "";
     public string Model { get; set; } = "gemini-3.8-flash";
     public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;

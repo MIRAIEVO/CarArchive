@@ -18,7 +18,7 @@ public sealed partial class MainPage
         {
             var key=new PasswordBox { Header="Gemini API Key（Windows 当前用户加密保存）",Password=VM.Credentials.Read() };
             var model=new ComboBox { Header="模型 ID（可选择或自行输入）",IsEditable=true,ItemsSource=ModelCatalog.BuiltIn.Append(VM.State.Settings.Model).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),SelectedItem=VM.State.Settings.Model,Text=VM.State.Settings.Model,HorizontalAlignment=HorizontalAlignment.Stretch };
-            var search=new ComboBox {Header="识别方式",HorizontalAlignment=HorizontalAlignment.Stretch,ItemsSource=new[]{"Gemini（默认，不联网检索）","Gemini + Google Search grounded（联网核实）"},SelectedIndex=VM.State.Settings.Search==SearchPreference.Grounded?1:0};
+            var search=new ComboBox {Header="识别方式",HorizontalAlignment=HorizontalAlignment.Stretch,ItemsSource=new[]{"Gemini（默认，不联网检索）","Gemini + Google Search grounded"},SelectedIndex=VM.State.Settings.Search==SearchPreference.Grounded?1:0};
             var budget=new NumberBox { Header="每批生成请求上限",Minimum=1,Maximum=10000,Value=VM.State.Settings.BatchCallLimit,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact };
             var check=new Button { Content="读取账号可用模型（不生成内容）",HorizontalAlignment=HorizontalAlignment.Stretch };
             var reset=new Button { Content="开始新批次（重置调用计数）",HorizontalAlignment=HorizontalAlignment.Stretch };
@@ -35,8 +35,8 @@ public sealed partial class MainPage
             var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,openTrash,maintenanceStatus}) maintenance.Children.Add(element);
             var clearNames=new Button {Content="删除现有记住命名数据"};naming.Children.Add(clearNames);
             var clearCrashes=new Button {Content="删除崩溃日志"};maintenance.Children.Add(clearCrashes);
-            var settingsPages=BuildSettingsNavigation(recognition,naming,maintenance,BuildInteractionSettingsPanel());
-            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=settingsPages,PrimaryButtonText="保存",CloseButtonText="关闭",DefaultButton=ContentDialogButton.Close };
+            var settingsPages=BuildSettingsNavigation(recognition,naming,maintenance,BuildInteractionSettingsPanel(),BuildConfirmationSettingsPanel());
+            var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=settingsPages,CloseButtonText="确定",DefaultButton=ContentDialogButton.Close };
             Action? afterClose=null;
             clearNames.Click+=(_,_)=> {afterClose=()=>ClearRememberedNames_Click(sender,e);dialog.Hide();};
             clearCrashes.Click+=(_,_)=> {afterClose=()=>ClearCrashLogs_Click(sender,e);dialog.Hide();};
@@ -47,17 +47,28 @@ public sealed partial class MainPage
             importData.Click+=async(_,_)=> { try { var source=await PickFolderAsync();if(source is null) return;maintenanceStatus.Text=File.Exists(Path.Combine(source,"cararchive.db"))?"已选择："+source+"\n当前版本已打开数据库，不会覆盖或合并。请解压一份新的便携包，启动时选择此目录导入。迁移前关闭本版本。":"该目录没有 cararchive.db，请选择旧版本 Data 或原本机数据目录。"; } catch(Exception error) { maintenanceStatus.Text=error.Message; } };
             clearCache.Click+=async(_,_)=> { clearCache.IsEnabled=false;try { maintenanceStatus.Text=await ClearRebuildableCacheAsync(); } catch(Exception error) { maintenanceStatus.Text=error.Message; } finally { clearCache.IsEnabled=true; } };
             using var checkCts=new CancellationTokenSource();
-            void SaveSettings()
+            void SaveModel(string value)
             {
-                if(string.IsNullOrWhiteSpace(model.Text)) throw new ArgumentException("请填写模型 ID。");
-                if(double.IsNaN(budget.Value)) throw new ArgumentException("请填写有效的调用上限。");
-                VM.Credentials.Save(key.Password); VM.State.Settings.Model=model.Text.Trim();
-                VM.State.Settings.BatchCallLimit=(int)budget.Value;VM.State.Settings.OptimizeRecognitionTokens=tokenPolicy.IsOn;
-                VM.State.Settings.Search=search.SelectedIndex==1?SearchPreference.Grounded:SearchPreference.Gemini;VM.SaveHeader();
+                if(string.IsNullOrWhiteSpace(value) || value.Trim()==VM.State.Settings.Model)return;
+                VM.State.Settings.Model=value.Trim();VM.SaveHeader();UpdateModePresentation();
             }
+            void SaveBudget(string value)
+            {
+                if(int.TryParse(value,out var amount) && amount is >=1 and <=10000 && amount!=VM.State.Settings.BatchCallLimit)
+                {VM.State.Settings.BatchCallLimit=amount;VM.SaveHeader();}
+            }
+            var savedKey=key.Password;
+            key.PasswordChanged+=(_,_)=> {try {if(key.Password==savedKey)return;VM.Credentials.Save(key.Password);savedKey=key.Password;}catch(Exception error){checkStatus.Text=error.Message;}};
+            model.SelectionChanged+=(_,_)=> {if(model.SelectedItem is string value)SaveModel(value);};
+            var modelWired=false;model.Loaded+=(_,_)=> {if(!modelWired && VisualChild<TextBox>(model) is { } input) {modelWired=true;input.TextChanged+=(_,_)=>SaveModel(input.Text);}};
+            model.TextSubmitted+=(_,args)=>SaveModel(args.Text);
+            budget.ValueChanged+=(_,args)=>SaveBudget(args.NewValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var budgetWired=false;budget.Loaded+=(_,_)=> {if(!budgetWired && VisualChild<TextBox>(budget) is { } input) {budgetWired=true;input.TextChanged+=(_,_)=>SaveBudget(input.Text);}};
+            tokenPolicy.Toggled+=(_,_)=> {VM.State.Settings.OptimizeRecognitionTokens=tokenPolicy.IsOn;VM.SaveHeader();};
+            search.SelectionChanged+=(_,_)=> {VM.State.Settings.Search=search.SelectedIndex==1?SearchPreference.Grounded:SearchPreference.Gemini;VM.SaveHeader();};
             check.Click+=async (_,_)=> {check.IsEnabled=false;try {using var client=new HttpClient{Timeout=TimeSpan.FromSeconds(30)};var current=model.Text;var available=await ModelCatalog.FetchAsync(client,key.Password,checkCts.Token);model.ItemsSource=ModelCatalog.BuiltIn.Concat(available).Append(current).Where(id=>!string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();model.Text=current;checkStatus.Text=$"已读取 {available.Count} 个模型；未发送照片，未生成内容。";}catch(Exception error){checkStatus.Text=error.Message;}finally{check.IsEnabled=true;} };
             reset.Click+=(_,_)=> { VM.State.BatchCalls=0; VM.State.BatchId=Guid.NewGuid().ToString("N"); VM.Save(); checkStatus.Text="已开始新批次，调用计数归零。"; };
-            dialog.PrimaryButtonClick+=(_,args)=> { try { SaveSettings(); VM.Status="设置已保存。"; } catch(Exception error) { args.Cancel=true; checkStatus.Text=error.Message; } };
+
             dialog.Closing+=(_,_)=>checkCts.Cancel();
             await dialog.ShowAsync();UpdateModePresentation();RenderSelection();if(afterClose is not null) DispatcherQueue.TryEnqueue(()=>afterClose());
         }

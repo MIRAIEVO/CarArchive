@@ -14,9 +14,9 @@ public sealed partial class MainPage
         var title=new TextBlock {Text="选择设置项目",FontSize=18,VerticalAlignment=VerticalAlignment.Center};header.Children.Add(back);header.Children.Add(title);layout.Children.Add(header);
         var content=new ContentControl {HorizontalContentAlignment=HorizontalAlignment.Stretch,VerticalContentAlignment=VerticalAlignment.Stretch};Grid.SetRow(content,1);layout.Children.Add(content);
         var home=new StackPanel {Spacing=12};
-        string[] titles=["识别与费用","命名学习","数据与维护","快捷键与确认"];
-        string[] descriptions=["API、模型、联网方式及调用预算","本地指南、学习记录与导出","便携数据、缓存和崩溃日志","快捷键绑定与确认偏好"];
-        string[] paths=["M10,2 H14 V5 L17,7 L20,6 L22,10 L19,12 L20,16 L17,19 L14,18 V22 H10 V18 L7,19 L4,16 L5,12 L2,10 L4,6 L7,7 L10,5 Z M9,9 V15 H15 V9 Z","M3,3 H11 V7 H21 V21 H3 Z M6,10 V12 H18 V10 Z M6,15 V17 H15 V15 Z","M3,2 H21 V8 H3 Z M3,10 H21 V16 H3 Z M3,18 H21 V22 H3 Z","M2,5 H22 V20 H2 Z M5,8 V10 H8 V8 Z M10,8 V10 H13 V8 Z M15,8 V10 H19 V8 Z M6,14 V17 H18 V14 Z"];
+        string[] titles=["识别与费用","命名学习","数据与维护","快捷键","确认弹窗"];
+        string[] descriptions=["API、模型、联网方式及调用预算","本地指南、学习记录与导出","便携数据、缓存和崩溃日志","查看或修改快捷键","逐项设置下次不再显示"];
+        string[] paths=["M10,2 H14 V5 L17,7 L20,6 L22,10 L19,12 L20,16 L17,19 L14,18 V22 H10 V18 L7,19 L4,16 L5,12 L2,10 L4,6 L7,7 L10,5 Z M9,9 V15 H15 V9 Z","M3,3 H11 V7 H21 V21 H3 Z M6,10 V12 H18 V10 Z M6,15 V17 H15 V15 Z","M3,2 H21 V8 H3 Z M3,10 H21 V16 H3 Z M3,18 H21 V22 H3 Z","M2,5 H22 V20 H2 Z M5,8 V10 H8 V8 Z M10,8 V10 H13 V8 Z M15,8 V10 H19 V8 Z M6,14 V17 H18 V14 Z","M3,3 H21 V18 H14 L8,23 V18 H3 Z M7,8 V10 H17 V8 Z M7,12 V14 H14 V12 Z"];
         var views=pages.Select(page=>new ScrollViewer {Content=page,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}).ToArray();
         for(var i=0;i<pages.Length;i++)
         {
@@ -26,7 +26,8 @@ public sealed partial class MainPage
             var button=new Button {Content=row,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch,Padding=new Thickness(16),CornerRadius=new CornerRadius(10)};
             button.Click+=(_,_)=> {content.Content=views[index];title.Text=titles[index];back.Visibility=Visibility.Visible;};home.Children.Add(button);
         }
-        back.Click+=(_,_)=> {content.Content=home;title.Text="选择设置项目";back.Visibility=Visibility.Collapsed;};content.Content=home;return layout;
+        var homeView=new ScrollViewer {Content=home,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
+        back.Click+=(_,_)=> {content.Content=homeView;title.Text="选择设置项目";back.Visibility=Visibility.Collapsed;};content.Content=homeView;return layout;
     }
     private async void ClearRememberedNames_Click(object sender,RoutedEventArgs e)
     {

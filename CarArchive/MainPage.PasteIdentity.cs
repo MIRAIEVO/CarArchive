@@ -4,19 +4,64 @@ using Microsoft.UI.Xaml.Controls;
 namespace CarArchive;
 public sealed partial class MainPage
 {
+ private Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase? pasteIdentityFlyout;
+ private bool pasteIdentityOpen;
  private async void PasteIdentity_Click(object sender,RoutedEventArgs e)
  {
-  try {
-   var group=RequireGroup();if(!group.Editable)return;VM.MarkTouched(group);await VM.PrepareNamingGuideAsync();if(VM.Selected!=group||!group.Editable)return;
-   var input=new TextBox{AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,Height=220,PlaceholderText="粘贴 Gemini 网页返回的车型 JSON，可包含代码围栏和说明文字"};
-   var preview=Paragraph("只导入车型字段；不会把网页结论标记为联网验证通过。Key 等计算字段会忽略。");
-   var panel=new StackPanel{Spacing=10,MinWidth=380,MaxWidth=600};panel.Children.Add(input);panel.Children.Add(preview);
-   var dialog=new ContentDialog{XamlRoot=XamlRoot,Title="粘贴网页车型 JSON",RequestedTheme=RequestedTheme,Content=new ScrollViewer{Content=panel,MaxHeight=600},PrimaryButtonText="确认",CloseButtonText="取消",IsPrimaryButtonEnabled=false};CarIdentity? identity=null;
-   input.TextChanged+=(_,_)=>{try{identity=PastedIdentity.Parse(input.Text);var name=VM.Naming.Suggest(identity,VM.State,[]);preview.Text=System.Text.Json.JsonSerializer.Serialize(identity,new System.Text.Json.JsonSerializerOptions(StateStore.Json){WriteIndented=true})+"\n\n目录："+VM.Naming.ResolveBrand(identity,VM.State)+" / "+name.Name;dialog.IsPrimaryButtonEnabled=true;}catch(Exception error){identity=null;dialog.IsPrimaryButtonEnabled=false;preview.Text=error.Message;}};
-   if(await dialog.ShowAsync()!=ContentDialogResult.Primary||identity is null)return;
-   if(VM.Selected!=group||!group.Editable)throw new InvalidOperationException("当前分组已改变，请重新粘贴。");
-   ApplyPastedIdentity(group,identity);RenderSelection();
-  }catch(Exception error){VM.Status=error.Message;}
+  try
+  {
+   if(pasteIdentityOpen)return;
+   var group=RequireGroup();if(!group.Editable)return;
+   VM.MarkTouched(group);await VM.PrepareNamingGuideAsync();if(VM.Selected!=group||!group.Editable||pasteIdentityOpen)return;
+   var input=new TextBox {AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,PlaceholderText="粘贴车型 JSON",VerticalAlignment=VerticalAlignment.Stretch};
+   ScrollViewer.SetVerticalScrollBarVisibility(input,ScrollBarVisibility.Auto);
+   ScrollViewer.SetHorizontalScrollBarVisibility(input,ScrollBarVisibility.Disabled);
+   var preview=Paragraph("粘贴后自动解析");preview.MaxLines=2;preview.TextTrimming=TextTrimming.CharacterEllipsis;
+   var automatic=new ToggleSwitch {OffContent="手动确定",OnContent="粘贴即确定",IsOn=VM.State.Settings.AutoApplyPastedJson};
+   automatic.Toggled+=(_,_)=> {VM.State.Settings.AutoApplyPastedJson=automatic.IsOn;VM.SaveHeader();};
+   var apply=new Button {Content="确定",IsEnabled=false,HorizontalAlignment=HorizontalAlignment.Right};
+   var panel=new Grid {Width=Math.Min(440,Math.Max(260,XamlRoot.Size.Width-80)),Height=Math.Min(380,Math.Max(240,XamlRoot.Size.Height-180)),RowSpacing=12};
+   panel.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});panel.RowDefinitions.Add(new RowDefinition());
+   panel.RowDefinitions.Add(new RowDefinition {Height=new GridLength(54)});panel.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
+   panel.Children.Add(new TextBlock {Text="粘贴 JSON",FontSize=18,FontWeight=Microsoft.UI.Text.FontWeights.SemiBold});
+   Grid.SetRow(input,1);panel.Children.Add(input);Grid.SetRow(preview,2);panel.Children.Add(preview);var actions=new Grid();actions.ColumnDefinitions.Add(new ColumnDefinition());actions.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});actions.Children.Add(automatic);Grid.SetColumn(apply,1);actions.Children.Add(apply);Grid.SetRow(actions,3);panel.Children.Add(actions);
+   var flyout=new Flyout {Content=panel,Placement=Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight,ShouldConstrainToRootBounds=true};
+   var presenter=new Style {TargetType=typeof(FlyoutPresenter)};
+   presenter.Setters.Add(new Setter(FrameworkElement.WidthProperty,panel.Width+32));
+   presenter.Setters.Add(new Setter(FrameworkElement.MinWidthProperty,panel.Width+32));
+   presenter.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty,panel.Width+32));
+   presenter.Setters.Add(new Setter(Control.PaddingProperty,new Thickness(16)));
+   presenter.Setters.Add(new Setter(Control.CornerRadiusProperty,new CornerRadius(14)));
+   presenter.Setters.Add(new Setter(ScrollViewer.HorizontalScrollBarVisibilityProperty,ScrollBarVisibility.Disabled));
+   presenter.Setters.Add(new Setter(ScrollViewer.VerticalScrollBarVisibilityProperty,ScrollBarVisibility.Auto));
+   flyout.FlyoutPresenterStyle=presenter;
+   pasteIdentityFlyout=flyout;CarIdentity? identity=null;
+   void Apply()
+   {
+    if(identity is null)return;
+    if(VM.Selected!=group || !group.Editable){VM.Status="当前分组已改变，请重新粘贴。";flyout.Hide();return;}
+    ApplyPastedIdentity(group,identity);flyout.Hide();RenderSelection();
+   }
+   input.TextChanged+=(_,_)=>
+   {
+    try
+    {
+     identity=PastedIdentity.Parse(input.Text);var name=VM.Naming.Suggest(identity,VM.State,[]);
+     preview.Text=VM.Naming.ResolveBrand(identity,VM.State)+" / "+name.Name;apply.IsEnabled=true;
+     if(automatic.IsOn)
+     {
+      var pastedText=input.Text;
+      DispatcherQueue.TryEnqueue(()=> {if(pasteIdentityOpen && ReferenceEquals(pasteIdentityFlyout,flyout) && automatic.IsOn && input.Text==pastedText && apply.IsEnabled)Apply();});
+     }
+    }
+    catch {identity=null;apply.IsEnabled=false;preview.Text=input.Text.Length==0?"粘贴后自动解析":"请粘贴有效的车型 JSON";}
+   };
+   apply.Click+=(_,_)=>Apply();
+   flyout.Opened+=(_,_)=>input.Focus(FocusState.Programmatic);
+   flyout.Closed+=(_,_)=> {pasteIdentityOpen=false;if(ReferenceEquals(pasteIdentityFlyout,flyout))pasteIdentityFlyout=null;};
+   CloseAllSuggestions();pasteIdentityOpen=true;flyout.ShowAt(PasteIdentityButton);
+  }
+  catch(Exception error){pasteIdentityOpen=false;VM.Status=error.Message;}
  }
  private void ApplyPastedIdentity(PhotoGroup group,CarIdentity identity)
  {

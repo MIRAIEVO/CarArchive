@@ -11,7 +11,8 @@ public static class InteractionSettings
         new("removePhotos","移除选中图片，保留照片","Photos",new(46,0)), new("recycleGroups","删除组并回收源照片","Groups",new(46,5)),
         new("recyclePhotos","删除图片并回收源照片","Photos",new(46,5)), new("undoArchive","撤回最近操作","Global",new(90,1)),new("redoEdit","重做最近操作","Global",new(90,5)) ];
     public static readonly IReadOnlyDictionary<string,string> Confirmations=new Dictionary<string,string> {
-        ["archive"]="确认命名并移动",["removeGroups"]="移除所选分组",["removePhotos"]="移除组内图片",["clearArchived"]="清理已归档记录",
+        ["clearNamingData"]="清除命名学习数据",["clearCrashLogs"]="清除崩溃日志",
+        ["removeGroups"]="移除所选分组",["removePhotos"]="移除组内图片",["clearArchived"]="清理已归档记录",
         ["recycleGroups"]="删除组并回收源照片",["recyclePhotos"]="删除图片并回收源照片",["learnRule"]="采用本地命名规则" };
     public static Dictionary<string,ShortcutBinding> Defaults()=>Commands.ToDictionary(c=>c.Id,c=>c.Default);
     public static ShortcutBinding? Get(AppSettings settings,string id)=>settings.Shortcuts is not null && settings.Shortcuts.TryGetValue(id,out var b)?b:Commands.FirstOrDefault(c=>c.Id==id)?.Default;

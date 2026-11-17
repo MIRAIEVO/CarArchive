@@ -1,4 +1,4 @@
-﻿param([string]$Version='1.2.2',[switch]$NoRestore)
+﻿param([string]$Version='1.2.3',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -37,7 +37,7 @@ $versionNotes=Join-Path $repositoryRoot ('docs\releases\release-notes-v'+$Versio
 if(Test-Path -LiteralPath $versionNotes) { Copy-Item -LiteralPath $versionNotes -Destination (Join-Path $docs 'Release-Notes.md') }
 $namingDocs=Join-Path $docs 'Naming'
 New-Item -ItemType Directory -Path $namingDocs -Force | Out-Null
-foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充要求.md')) {
+foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充要求.md','命名输入推演.csv','命名差异与待复核.csv','品牌资料索引.csv','改款与代次核对.csv','命名学习覆盖.json')) {
     $sourceDocument=Join-Path $repositoryRoot ('CarArchive.Core\Resources\'+$name)
     if(!(Test-Path -LiteralPath $sourceDocument)){throw ('Missing bundled naming document: '+$name)}
     Copy-Item -LiteralPath $sourceDocument -Destination (Join-Path $namingDocs $name)
@@ -47,7 +47,7 @@ foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充�
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.2.2: repeatable batch import, accelerated full-frame thumbnails, global upload selection, automatic JSON parsing, fixed settings navigation and configuration-only migration.
+Release 1.2.3: live settings, row-anchored merge, recognition cancellation, selected-group move undo and anchored JSON paste with optional automatic confirmation. Updated bundled naming guide, sticky merge, fixed action sizing and stable thumbnail reuse.
 Brand, series and model naming guidance is bundled for offline use; existing archive folders are not renamed.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8

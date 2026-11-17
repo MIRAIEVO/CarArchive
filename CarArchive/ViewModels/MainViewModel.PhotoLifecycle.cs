@@ -34,6 +34,7 @@ public sealed partial class MainViewModel
             }
         },PhotoTaskChanged,linked.Token);
         if(!Groups.Contains(copy) || copy.FilesPending) throw new IOException(source.LastError.Length>0?source.LastError:"独立副本尚未就绪，请检查照片操作记录。");
+        copy.TaskState=GroupTaskState.Idle;copy.TaskKind="";copy.State="待识别";SaveGroup(copy);GroupUpdated?.Invoke(copy);
         return copy;
     }
     private readonly SynchronizationContext? photoUi=SynchronizationContext.Current;

@@ -13,3 +13,5 @@
 - [v1.2](release-notes-v1.2.md)：包含未单独发布的 1.1.5 开发改动。
 
 - [v1.2.1](release-notes-v1.2.1.md)：元数据、复制、JSON、模型与日志升级。
+
+- [1.2.3](release-notes-v1.2.3.md)

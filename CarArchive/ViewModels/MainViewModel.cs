@@ -39,6 +39,8 @@ public sealed partial class MainViewModel : Observable
     public bool Idle=>!Busy;
     public bool SelectedEditable=>Selected?.Editable==true;
     public bool SelectedWorking=>Selected?.IsWorking==true;
+    public bool SelectedCanRecognize=>SelectedEditable || Selected is {IsWorking:true,TaskKind:"联网识别"};
+    public bool SelectedCanArchiveAction=>Selected is {IsWorking:false,FilesPending:false} group && (group.Archived || group.Editable);
     public string Status { get=>status;set=>Set(ref status,value); }
     public string Summary=>$"{Groups.Count(g=>!g.Archived)} 组待处理 · {Groups.Sum(g=>g.Photos.Count)} 张 · 本批请求 {State.BatchCalls}/{State.Settings.BatchCallLimit}";
     public CancellationTokenSource? Cancellation { get; set; }
@@ -50,7 +52,7 @@ public sealed partial class MainViewModel : Observable
         Selected=Groups.FirstOrDefault(g=>!g.Archived) ?? Groups.FirstOrDefault();
         if(Store.Jobs().Any(j=>j.Status is "Pending" or "Interrupted")) Status="存在中断操作，请在“操作记录”中检查并恢复。";
     }
-    private void SelectionChanged() { Notify(nameof(SelectedEditable));Notify(nameof(SelectedWorking));Notify(nameof(SelectedCanDeleteGroups));Notify(nameof(Summary)); }
+    private void SelectionChanged() { Notify(nameof(SelectedEditable));Notify(nameof(SelectedWorking));Notify(nameof(SelectedCanRecognize));Notify(nameof(SelectedCanArchiveAction));Notify(nameof(SelectedCanDeleteGroups));Notify(nameof(Summary)); }
     private void Enqueue(Action action,bool fullSnapshot=false)
     {
         writes=writes.ContinueWith(_=> {
@@ -189,14 +191,16 @@ public sealed partial class MainViewModel : Observable
         }
         var result=await Recognition.RecognizeAsync(photos,settings,false,ct);
         ct.ThrowIfCancellationRequested();await PrepareNamingGuideAsync();ct.ThrowIfCancellationRequested();
-        group.Suggestion=result;group.Confirmed=result.Identity.Clone();group.NamingOriginalIdentity=result.Identity.Clone();
-        if(!group.ManualTargetBrand) group.TargetBrand=Naming.ResolveBrand(group.Confirmed,State);
-        if(result.Verification is not null) StoreVerification(group,result.Verification);
-        else group.Verification=null;
-        if(!group.ManualName) { group.PreviousFolderName=group.FolderName; GenerateName(group); }
-        else group.AppliedRule="保留本次手动命名；识别字段已更新，可点击重新生成名称";
-        group.State=settings.Search==SearchPreference.Gemini?"Gemini 识别完成 · 未启用联网核实":result.Verification?.StatusText ?? (result.Grounded?"已返回联网结果 · 待人工复核":"未完成查证 · 可人工复核");
+        ApplyRecognitionResult(group,result);
+        group.State="Gemini识别完成";
         SaveGroup(group);
+    }
+    public void ApplyRecognitionResult(PhotoGroup group,RecognitionResult result)
+    {
+        group.Suggestion=result;group.Confirmed=result.Identity.Clone();group.NamingOriginalIdentity=result.Identity.Clone();
+        if(result.Verification is not null) StoreVerification(group,result.Verification);else group.Verification=null;
+        group.ManualName=false;group.ManualTargetBrand=false;group.PreviousFolderName="";
+        group.TargetBrand=Naming.ResolveBrand(group.Confirmed,State);GenerateName(group);
     }
     private static void StoreVerification(PhotoGroup group,VerificationReport report)
     {
@@ -243,7 +247,7 @@ public sealed partial class MainViewModel : Observable
         if(groups.Count<2) throw new InvalidOperationException("请多选至少两个分组。");
         foreach(var g in groups) RequireEditable(g);
         var ordered=groups.OrderBy(g=>Groups.IndexOf(g)).ToList();
-        var merged=ordered[0];var index=Groups.IndexOf(merged);
+        var merged=GroupMergePolicy.Choose(ordered);var index=Groups.IndexOf(ordered[0]);
         merged.Photos=new(GroupingService.Sort(ordered.SelectMany(g=>g.Photos)));
         merged.UserTouched=true;merged.Revision++;
         foreach(var g in ordered) Groups.Remove(g);

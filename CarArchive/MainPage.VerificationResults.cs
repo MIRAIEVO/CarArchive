@@ -27,7 +27,7 @@ public sealed partial class MainPage
     {
         var report=displayed?.Verification;
         ApiResultExpander.Visibility=displayed?.Suggestion is not null || report is not null?Visibility.Visible:Visibility.Collapsed;
-        VerificationBanner.Visibility=report is null?Visibility.Collapsed:Visibility.Visible;
+        VerificationBanner.Visibility=Visibility.Collapsed;
         VerificationBanner.Title=report?.StatusText ?? "";
         VerificationBanner.Severity=report?.Status switch { VerificationStatus.Passed=>InfoBarSeverity.Success,VerificationStatus.Failed=>InfoBarSeverity.Error,_=>InfoBarSeverity.Warning };
         AdoptVerificationButton.IsEnabled=displayed?.Editable==true && report?.SuggestedIdentity is not null && report.Status is not (VerificationStatus.NotRun or VerificationStatus.Canceled or VerificationStatus.Incomplete);
@@ -40,7 +40,7 @@ public sealed partial class MainPage
         }
         else
         {
-            var text=new StringBuilder();text.AppendLine("待验证："+IdentityLabel(report.Candidate));text.AppendLine(report.Summary);
+            var text=new StringBuilder();text.AppendLine("车型："+IdentityLabel(report.Candidate));text.AppendLine(report.Summary);
             foreach(var feature in report.Features)
             {
                 var check=report.Checks.LastOrDefault(c=>c.FeatureId==feature.Id);

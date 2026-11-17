@@ -1,4 +1,4 @@
-namespace CarArchive.Core;
+﻿namespace CarArchive.Core;
 
 /// <summary>Read-only lookup tables shared by all decisions for one guide snapshot.</summary>
 internal sealed class NamingGuideIndex

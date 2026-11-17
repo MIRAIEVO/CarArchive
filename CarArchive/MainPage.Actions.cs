@@ -38,11 +38,11 @@ public sealed partial class MainPage
         WireSuggestions(FolderEdit,OpenFolderSuggestions,CloseFolderSuggestions);
         WireSuggestions(TargetBrandEdit,OpenBrandSuggestions,CloseBrandSuggestions);
         editorSaveTimer.Tick+=(_,_)=> { editorSaveTimer.Stop();if(displayed is not null && displayed.Editable) VM.SaveGroup(displayed); };
-        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) DispatcherQueue.TryEnqueue(()=> { if(!categoryClosed && VM.Selected==group) RenderSelection(); }); };
+        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; RefreshActionPresentation();UpdateMergeSelection();if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) DispatcherQueue.TryEnqueue(()=> { if(!categoryClosed && VM.Selected==group) RenderSelection(); }); };
         VM.StructureUpdated+=()=> { if(displayed!=VM.Selected) { FlushEditor();RenderSelection(); } };
         VM.PhotoUpdated+=photo=> { if(currentPhoto?.AssetId==photo.AssetId && MainImage.Source is null) _=ShowPhotoAsync(currentPhoto); };
         PreviewKeyDown+=Commands_KeyDown;
-        RefreshCommandHints();InitializeContextMenus();
+        RefreshCommandHints();InitializeContextMenus();InitializeMergeTracking();InitializeActionPalette();
         _=PrepareIndependentPhotosAsync();_ = WarmClipboardAsync();
         App.MainWindow!.Closed += (_, _) => { categoryClosed=true;categoryCancellation?.Cancel();previewCancellation?.Cancel();FlushEditor();VM.Close();CrashJournal.Current?.Complete(); };
         RenderSelection();
@@ -61,6 +61,8 @@ public sealed partial class MainPage
         if(liveIndex>=0 && liveIndex+1<args.Length) _=RunLiveVerificationAsync(args[liveIndex+1]);
         var abIndex=Array.IndexOf(args,"--verify-token-ab");
         if(abIndex>=0 && abIndex+1<args.Length) _=RunTokenAbVerificationAsync(args[abIndex+1]);
+        var v123Index=Array.IndexOf(args,"--verify-v123");
+        if(v123Index>=0 && v123Index+1<args.Length) _=RunV123VerificationAsync(args[v123Index+1]);
         var v121Index=Array.IndexOf(args,"--verify-v121");
         if(v121Index>=0 && v121Index+1<args.Length) _=RunV121VerificationAsync(args[v121Index+1]);
         var v12Index=Array.IndexOf(args,"--verify-v12");
@@ -123,7 +125,7 @@ public sealed partial class MainPage
             currentPhoto = displayed?.Photos.FirstOrDefault(p=>p.Id==displayed.LastViewedId) ?? displayed?.Photos.FirstOrDefault(p => p.Id == displayed.RepresentativeId) ?? displayed?.Photos.FirstOrDefault();
             PhotoList.SelectedItem = currentPhoto;
             var result = displayed?.Suggestion;
-            VerificationText.Text = displayed?.Archived==true?"已归档 · 撤销后可修改":result is null ? (displayed?.State.Contains("网页 JSON")==true?"已导入网页字段 · 请人工核对":"尚未识别 · 可手动填写") : result.ActualSearch.StartsWith("Gemini（")?"Gemini 识别完成 · 未启用联网核实":result.Grounded ? "已获得联网依据 · 等待你的最终复核" : "未完成查证 · 请核对不确定项";
+            VerificationText.Text=displayed?.Archived==true?"已归档":result is not null?"Gemini识别完成":displayed?.State.Contains("网页 JSON")==true?"JSON 已填充":"尚未识别";
             ObservationsText.Text = result?.Observations ?? "";
             UncertaintyText.Text = result is null ? "" : result.Uncertainties + (result.Alternatives.Count > 0 ? "\n备选："+string.Join("；",result.Alternatives) : "");
             ResearchText.Text = result?.Research ?? ""; QueriesText.Text = result is null ? "" : "实际搜索词：\n"+string.Join("\n",result.Queries);
@@ -135,7 +137,7 @@ public sealed partial class MainPage
             UpdateExistingCategories();
             UpdateTargetPath();
         }
-        finally { rendering = false;UpdateMergeSelection(); }
+        finally { rendering = false;UpdateMergeSelection();RefreshActionPresentation(); }
         _ = RefreshCategoryCatalogAsync();
         if(displayed!=previousGroup) FocusCurrentGroup();
         _ = ShowPhotoAsync(currentPhoto);
@@ -192,6 +194,7 @@ public sealed partial class MainPage
     private async Task PrefetchAsync(Photo photo,CancellationToken ct) { try { await Task.Delay(150,ct);await VM.Images.EnsurePreviewAsync(photo,ct); } catch { } }
     private void Group_Changed(object sender, SelectionChangedEventArgs e)
     {
+        TrackMergeSelection(e);
         UpdateMergeSelection();
         if (rendering) return;
         var group = e.AddedItems.OfType<PhotoGroup>().LastOrDefault(); if (group is null || group == displayed) return;
@@ -299,7 +302,7 @@ public sealed partial class MainPage
         try { FlushEditor();var group=RequireGroup();var revision=group.Revision;await VM.PrepareNamingGuideAsync();if(group.Revision!=revision || !group.Editable) { VM.Status="分组已改变，请重新生成名称。";return; }var before=VM.CaptureEdits([group]);group.PreviousFolderName=group.FolderName;VM.GenerateName(group);VM.RecordEdits(before,new(){group.Id});VM.SaveGroup(group);if(VM.Selected==group) RenderSelection(); }
         catch(Exception error) { VM.Status="本地命名失败："+error.Message; }
     }
-    private void RestoreName_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { var g=RequireGroup();if(!g.Editable) return;var old=g.FolderName;g.FolderName=g.PreviousFolderName;g.PreviousFolderName=old;g.ManualName=true;VM.SaveGroup(g); });
+    private void RestoreName_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { var g=RequireGroup();if(!g.Editable || g.PreviousFolderName.Length==0) return;var old=g.FolderName;g.FolderName=g.PreviousFolderName;g.PreviousFolderName=old;g.ManualName=true;VM.SaveGroup(g); });
     private async void Duplicate_Click(object sender,RoutedEventArgs e) { try { FlushEditor();var before=new Dictionary<string,string>();var copied=await VM.DuplicateAsync(RequireGroup(),default);VM.RecordEdits(before,new(){copied.Id});RenderSelection(); }catch(Exception error) { VM.Status=error.Message; } }
     private void Merge_Click(object sender,RoutedEventArgs e) {var groups=GroupList.SelectedItems.OfType<PhotoGroup>().OrderBy(g=>VM.Groups.IndexOf(g)).ToList();LocalAction(()=>VM.Merge(groups));}
     private void Split_Click(object sender,RoutedEventArgs e) {var group=RequireGroup();var photos=PhotoList.SelectedItems.OfType<Photo>().ToList();LocalAction(()=>VM.Split(group,photos));}
@@ -339,11 +342,10 @@ public sealed partial class MainPage
         FlushEditor();
         try
         {
-            var group=RequireGroup();if(!group.Editable) throw new InvalidOperationException("本组正在执行任务或已归档。"); NamingService.SafeSegment(group.FolderName); NamingService.SafeSegment(group.TargetBrand);
+            var group=RequireGroup();if(group.Archived) {await UndoSelectedMoveAsync(group);return;}if(!group.Editable) throw new InvalidOperationException("本组正在执行任务或已归档。"); NamingService.SafeSegment(group.FolderName); NamingService.SafeSegment(group.TargetBrand);
             if(VM.State.Settings.ArchiveRoot.Length==0) throw new InvalidOperationException("请先选择归档根目录。");
             var root=VM.State.Settings.ArchiveRoot;var target=Path.Combine(root,group.TargetBrand,group.FolderName);
-            var message=$"归档 {group.Photos.Count(p=>!p.Excluded)} 张原照片到：\n{target}\n\n"+(group.Suggestion?.Grounded==true ? "请确认车型与照片分组正确。" : "此组尚未完成联网查证。确认表示你已人工核对分类与分组。")+"\n复制组使用独立原图副本。可通过操作记录撤销归档。";
-            if(!await ConfirmAsync("archive","确认这次分类并移动",new TextBlock { Text=message,TextWrapping=TextWrapping.Wrap,IsTextSelectionEnabled=true },"确认并移动","返回修改")) return;
+
             await VM.RunGroupAsync(group,"归档",true,ct=>VM.ArchiveAsync(group,ct,root));
             if(group.Archived) { var rules=VM.Learn(group,false);if(VM.Selected==group) await ConsiderRuleAsync(rules);await VM.EnsureNamingGuideAsync(true); _=RefreshCategoryCatalogAsync(); }
         }
@@ -371,7 +373,7 @@ public sealed partial class MainPage
         NarrowRow.Height=new GridLength(0); PaneBox.Visibility=narrow?Visibility.Visible:Visibility.Collapsed;
         Grid.SetColumn(EditorPane,narrow?1:2); Grid.SetRow(EditorPane,0); Grid.SetColumn(QueuePane,narrow?1:0);
         ApplyPaneVisibility();
-        ResizeThumbnails(e.NewSize.Height);
+        ResizeThumbnails(e.NewSize.Height);UpdateMergeSelection();
         DrawSavedCrop();
     }
     private void Pane_Changed(object sender,SelectionChangedEventArgs e) { if(QueuePane is not null) ApplyPaneVisibility(); }

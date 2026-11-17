@@ -46,7 +46,7 @@ static class NamingTests
         test("Naming: unmapped legacy folders remain usable through exact model aliases without fuzzy family propagation",()=> {
             var state=new WorkspaceState();var guide=Build(Area(),state,("Unmapped","Special Roadster",null));
             var result=NamingGuideEngine.Generate(new() { Brand="Unmapped",Series="Different API series label",Variant="Special Roadster",Generation="1st" },state,guide);
-            Check(result.Name=="Special Roadster (1st)",result.Name);
+            Check(result.Name=="Special Roadster",result.Name);
             Check(NamingGuideEngine.Generate(new() { Brand="Unmapped",Series="Different API series label",Variant="Special Roadster GT",Generation="1st" },state,guide).Name=="Special Roadster GT (1st)");return Task.CompletedTask;
         });
         test("Naming: BMW uses LCI and never reintroduces a historical duplicated body phrase",()=> {
@@ -206,10 +206,10 @@ static class NamingTests
             var conflict=NamingGuideEngine.Generate(new() { Brand="Porsche",Series="911",Variant="911",Code="991.2",Phase="Pre-Facelift" },state,guide);
             Check(conflict.Name=="911 (991)" && conflict.Warnings.Count>0);return Task.CompletedTask;
         });
-        test("Naming V2: no-suffix historical folders do not suppress a verified generation; memory-only endpoints stay absent",()=> {
+        test("Naming V2: known no-suffix family preserves its naming convention; memory-only endpoints stay absent",()=> {
             var state=new WorkspaceState();var guide=Build(Area(),state,("Example","Model",null));
             state.Names.Add(new("old","Example","Remembered-only model"));
-            Check(NamingGuideEngine.Generate(new() { Brand="Example",Series="Model",Variant="Model Limited Edition",Generation="2nd" },state,guide).Name=="Model Limited Edition (2nd)");
+            Check(NamingGuideEngine.Generate(new() { Brand="Example",Series="Model",Variant="Model Limited Edition",Generation="2nd" },state,guide).Name=="Model Limited Edition");
             Check(CategoryCatalogService.Scan(state.Settings.ArchiveRoot).Items.Count==1);
             Check(guide.Inventory.All(e=>e.Folder!="Remembered-only model"));return Task.CompletedTask;
         });

@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -76,7 +76,7 @@ public static class NamingGuideBuilder
     {
         // Compile mandatory policies into the guide too, so the CSV and runtime agree.
         // Historical spelling/prefix/package data remains evidence, never a complete-name template.
-        if(entry.Style.Length==0) entry.Style="{generation} {phase}";
+        if(entry.Style.Length==0 && entry.Suffix.Length>0) entry.Style="{generation} {phase}";
         var brand=NamingText.PolicyBrand(entry.Brand);
         var policy=NamingPolicies.For(entry.Brand,Mandatory);
         if(policy?.Suffix=="none") entry.Style="";
@@ -99,6 +99,8 @@ public static class NamingGuideBuilder
             }
         }
         else if(brand=="porsche" && entry.Family is "718" or "Cayman" or "Boxster") entry.Style="{code} {phase}";
+        entry.Style=NamingSupplementRules.Suffix(entry.Brand,entry.Family,entry.Model)??entry.Style;
+
     }
     public static string MapBrand(string brand,WorkspaceState state)
     {
@@ -110,6 +112,7 @@ public static class NamingGuideBuilder
         var p=name.IdentityKey.Split('|');
         if(p.Length==9 && p[0]=="naming-v3") return new() { Brand=name.Brand,Series=p[2],Variant=p[3],Generation=p[4],Code=p[5],Phase=p[6],Package=p[7],ProductionYears=p[8] };
         return p.Length>=8?new() { Brand=name.Brand,Series=p[1],Variant=p[2],Generation=p[4],Code=p[5],Phase=p[6],Package=p[7] }:new() { Brand=name.Brand,Variant=name.FolderName.Split(" (")[0] };
+
     }
     private static void ReadNotes(string path,NamingGuide guide)
     {
@@ -150,7 +153,7 @@ public static class NamingGuideBuilder
         { e.Generation=NamingText.Generation(roman.Value);suffix="{roman}"+suffix[roman.Length..]; }
         else
         {
-            var gen=Regex.Match(suffix,@"\b\d{1,2}(?:st|nd|rd|th)\b",RegexOptions.IgnoreCase);
+            var gen=Regex.Match(suffix,@"^\d{1,2}(?:st|nd|rd|th)\b",RegexOptions.IgnoreCase);
             if(gen.Success)
             { e.Generation=NamingText.Generation(gen.Value);suffix=suffix[..gen.Index]+"{generation}"+suffix[(gen.Index+gen.Length)..]; }
         }

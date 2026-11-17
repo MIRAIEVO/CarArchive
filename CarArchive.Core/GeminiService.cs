@@ -33,6 +33,7 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         var selected = settings.ExplicitUploadSelection ? usable : usable[0].Crop is not null ? new List<Photo> { usable[0] } : SelectViews(usable, count);
         var instructions=settings.OptimizeRecognitionTokens?TokenOptimization.RecognitionPrompt(settings.Mode):minimal?MinimalInstructions:Instructions+ProfileInstructions(settings.Mode);
         if(settings.Search==SearchPreference.Gemini) instructions=OfflineInstructions(settings.Mode);
+        instructions+="\n"+IdentityFieldContract.Instructions;
         var input = new List<object> { new { type = "text", text = instructions } };
         foreach (var photo in selected)
         {
@@ -115,7 +116,8 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         var properties=IdentityFields.ToDictionary(s=>s,_=>(object)new { type="string" });
         properties["body"]=new { type="string",description="Leave empty unless the body-style term appears explicitly in officialName." };
         properties["officialName"]=new { type="string",description="Complete exact model marketing name confirmed by an official manufacturer source; otherwise empty." };
-        properties["generation"]=new { type="string",description="All-time ordinal of the base series, independent of body-style or performance-trim lineage; empty if uncertain." };
+        properties["generation"]=new { type="string",description="Required ordinal of the continuous base series: 1st even for a single-generation model, then 2nd, 3rd, etc. A unique marketing name is not a reason to omit generation." };
+        properties["phase"]=new {type="string",description="Audit this generation total facelift count. Exactly one: Facelift; multiple: 1st Facelift, 2nd Facelift, 3rd Facelift, etc.; original: Pre-Facelift. Unresolved: empty."};
         return properties;
     }
     public static IEnumerable<JsonElement> Walk(JsonElement element)
