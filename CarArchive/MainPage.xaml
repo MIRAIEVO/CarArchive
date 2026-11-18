@@ -30,13 +30,14 @@
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
     <DropDownButton x:Name="ModeButton" Height="36" BorderThickness="0" Background="Transparent" ToolTipService.ToolTip="选择AI识别强度">
-     <TextBlock x:Name="ModeLabel" Text="Low"/>
+     <TextBlock x:Name="ModeLabel" Text="Minimal"/>
      <DropDownButton.Flyout><Flyout x:Name="ModeFlyout" Opening="ModeFlyout_Opening"><StackPanel Width="320" Spacing="8">
       <TextBlock x:Name="ModePopupTitle" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
       <TextBlock x:Name="ModeModelText" FontSize="12" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
       <Slider x:Name="ModeSlider" Minimum="0" Maximum="6" StepFrequency="1" TickFrequency="1" TickPlacement="BottomRight" SnapsTo="StepValues" IsThumbToolTipEnabled="False" ValueChanged="ModeSlider_Changed" AutomationProperties.Name="AI识别强度"/>
       <ToggleSwitch x:Name="ModeSearchToggle" Header="联网搜索" OffContent="关闭" OnContent="开启" Toggled="ModeSearch_Changed"/>
       <TextBlock x:Name="ModeDescription" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+      <Button x:Name="ApplySelectedMode" Content="将当前档位和联网设置应用到所选组" Click="ApplySelectedMode_Click" Visibility="Collapsed"/>
       <HyperlinkButton Content="厂商与模型设置" Click="ModeSettings_Click" HorizontalAlignment="Center"/>
      </StackPanel></Flyout></DropDownButton.Flyout>
     </DropDownButton>

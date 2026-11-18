@@ -180,6 +180,7 @@ public sealed partial class MainViewModel : Observable
         var settings=capturedSettings ?? CaptureSettings();
         settings.Mode=group.Mode;settings.ExplicitUploadSelection=true;
         settings.Strength??=group.Strength??RecognitionPlan.FromLegacy(group.Mode);
+        RecognitionPlan.SetOnline(settings,RecognitionPlan.IsOnline(settings,group));
         var photos=group.PendingUploadPhotos??UploadSelection.Select(group,State.Settings.UploadMultiple);group.UploadingPhotoIds=photos.Select(p=>p.Id).ToHashSet();
         if(deep)
         {

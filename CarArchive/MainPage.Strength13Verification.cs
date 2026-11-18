@@ -20,11 +20,19 @@ public sealed partial class MainPage
             await VM.ImportAsync([fixture],true,default);
             await VM.BackgroundImport;
             var group=VM.Selected!;
-            Check(group.Strength==RecognitionStrength.Low,"New group defaults to Low");
+            Check(group.Strength==RecognitionStrength.Minimal && VM.State.Settings.Provider==RecognitionProvider.Gemini
+                && VM.State.Settings.Model=="gemini-3.8-flash" && !RecognitionPlan.IsOnline(VM.State.Settings),"Fresh workspace defaults");
             group.Strength=null;
             group.Mode=RecognitionMode.Accurate;
             RenderSelection();
             Check(ModeLabel.Text=="Max","Legacy group mapping");
+            var fixture2=await FixtureImageAsync(Path.Combine(directory,"fixture2.jpg"),900,600);
+            await VM.ImportAsync([fixture2],true,default);
+            await VM.BackgroundImport;
+            var second=VM.Selected!;
+            Check(second!=group,"Second group imported");
+            RenderSelection();
+            GroupList.SelectedItems.Add(group);
             ModeFlyout.ShowAt(ModeButton);
             await Task.Delay(100);
             ModeSlider.Value=6;
@@ -36,8 +44,9 @@ public sealed partial class MainPage
             Check(ModeModelText.Text=="OpenAI · gpt-6.2-sol" && ModeDescription.Text.Contains("2 / 2 / 2"),"Provider-specific effort and search");
             await VM.FlushWritesAsync();
             var state=new StateStore(ViewModels.MainViewModel.DataDirectory).Load();
-            Check(state.Settings.Profile(RecognitionProvider.OpenAI).Search && state.Settings.Search==SearchPreference.Gemini
-                && state.Groups.Single().Strength==RecognitionStrength.Ultra,"Search and strength persist separately");
+            Check(!state.Settings.Profile(RecognitionProvider.OpenAI).Search && state.Settings.Search==SearchPreference.Gemini
+                && state.Groups.Count==2 && state.Groups.All(item=>item.Strength==RecognitionStrength.Ultra
+                    && item.SearchOverrides.GetValueOrDefault(RecognitionProvider.OpenAI)),"Selected groups retain independent search and strength");
             Check(state.BatchCalls==0,"No API");
             ModeFlyout.Hide();
         }

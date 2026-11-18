@@ -81,7 +81,7 @@ public static class NamingGuideStore
         foreach(var warning in guide.Warnings) notes.AppendLine("注意："+warning);
         WriteAtomic(Path.Combine(directory,"命名指南.csv"),Csv(ruleRows),true);
         WriteAtomic(Path.Combine(directory,"命名扫描清单.csv"),Csv(inventory),true);
-        WriteAtomic(Path.Combine(directory,"说明与补充要求.md"),notes.ToString(),true);
+        WriteAtomic(Path.Combine(directory,"说明与补充要求.md"),string.Join("\n",notes.ToString().Replace("\r\n","\n").Replace('\r','\n').Split('\n').Select(line=>line.TrimEnd())).TrimEnd()+"\n",true);
         // Publish the machine-readable guide last; a reader never sees a partial JSON file.
         WriteAtomic(Path.Combine(directory,"naming-guide.json"),JsonSerializer.Serialize(guide,new JsonSerializerOptions(StateStore.Json) { WriteIndented=true }),false);
     }

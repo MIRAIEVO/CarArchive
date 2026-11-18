@@ -96,10 +96,11 @@ public sealed partial class MainPage
         // The inner TextBox may deliver its text event after a programmatic render has finished.
         // Model-equal text is not a user edit and must not mark another group as manually named.
         EnglishInput(sender);
-        if (sender.Text.Trim() == displayed.FolderName) return;
+        var name=NamingService.CleanGeneratedName(sender.Text);
+        if (name == displayed.FolderName) return;
         var before=VM.CaptureEdits([displayed]);
         displayed.ManualName = true;
-        displayed.FolderName = sender.Text.Trim();
+        displayed.FolderName = name;
         displayed.AppliedRule = "手动修改名称";VM.RecordEdits(before,new(){displayed.Id},true);
         CrashJournal.Trace("Archive.NameEdited",displayed.Id);VM.MarkTouched(displayed);
         displayed.Refresh();

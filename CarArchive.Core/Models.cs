@@ -143,6 +143,7 @@ public sealed class PhotoGroup : Observable
     public string LastViewedId { get; set; } = "";
     public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;
     public RecognitionStrength? Strength { get; set; }
+    public Dictionary<RecognitionProvider,bool> SearchOverrides { get; set; } = [];
     public bool UploadMultiple { get; set; }
     [JsonIgnore] public List<Photo>? PendingUploadPhotos {get;set;}
     [JsonIgnore] public HashSet<string> UploadingPhotoIds { get; set; } = [];
@@ -194,7 +195,7 @@ public sealed class NamingRule
 public sealed record LearnedName(string IdentityKey, string Brand, string FolderName);
 public sealed class AppSettings
 {
-    public RecognitionStrength DefaultStrength { get; set; } = RecognitionStrength.Low;
+    public RecognitionStrength DefaultStrength { get; set; } = RecognitionStrength.Minimal;
     public RecognitionStrength? Strength { get; set; }
     public RecognitionProvider Provider { get; set; }
     public Dictionary<RecognitionProvider, ProviderProfile> ProviderProfiles { get; set; } = [];

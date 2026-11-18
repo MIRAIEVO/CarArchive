@@ -50,7 +50,8 @@ public static class BuiltInNamingGuide
         foreach(var profile in copy.Profiles) profile.Sources=profile.Sources.Select(Relative).ToList();
         copy.Notes=copy.Notes.Select(n=>n with { Path=Relative(n.Path) }).ToList();
         foreach(var policy in copy.BrandPolicies) policy.Sources=policy.Sources.Select(Relative).ToList();
-        copy.Warnings=copy.Warnings.Select(w=>w.Replace(root+Path.DirectorySeparatorChar,"",StringComparison.OrdinalIgnoreCase).Replace(root,"",StringComparison.OrdinalIgnoreCase)).ToList();
+        var prefix=root.Replace('\\','/').TrimEnd('/');
+        if(prefix.Length>0)copy.Warnings=copy.Warnings.Select(w=>w.Replace('\\','/').Replace(prefix+"/","",StringComparison.OrdinalIgnoreCase).Replace(prefix,"",StringComparison.OrdinalIgnoreCase)).ToList();
         return copy;
     }
 }
@@ -75,7 +76,7 @@ internal static class NamingPolicies
     public static string Model(string model,string family,NamingBrandPolicy? policy)
     {
         if(policy?.ModelConvention=="AMG")
-            return NamingText.Clean(Regex.Replace(model,@"(?:^AMG\s+|\s+AMG(?=\s|$))"," ",RegexOptions.IgnoreCase));
+            return NamingText.Clean(Regex.Replace(model,@"(?:^AMG\s+|\s+AMG(?=\s|$)|\bSedan\b)"," ",RegexOptions.IgnoreCase));
         if(policy?.ModelConvention!="MercedesFullSeries" || !family.EndsWith("-Class",StringComparison.OrdinalIgnoreCase)) return model;
         if(model.StartsWith(family+" ",StringComparison.OrdinalIgnoreCase) || model.Equals(family,StringComparison.OrdinalIgnoreCase))
             return family+Regex.Replace(model[family.Length..],@"^\s+([A-Z]{1,3})\s+(\d{2,3})(?=\s|$)"," $1$2",RegexOptions.IgnoreCase);

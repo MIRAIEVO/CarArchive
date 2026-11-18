@@ -7,7 +7,8 @@ public static class V122Tests
         test("122: generated names remove colon and slash without changing original identity",()=>
         {
             var car=new CarIdentity {Brand="Example",Series="Model",Variant="Model: Sport/Touring",Generation="3"};
-            var name=NamingService.DefaultName(car);Check(name=="Model SportTouring (3rd)" && car.Variant=="Model: Sport/Touring");return Task.CompletedTask;
+            var name=NamingService.DefaultName(car);Check(name=="Model Sport Touring (3rd)" && car.Variant=="Model: Sport/Touring");
+            Check(NamingService.CleanGeneratedName("A： / B\\C|D")=="A B C D");return Task.CompletedTask;
         });
         test("122: global upload selection overrides legacy per-group flags and snapshots inputs",()=>
         {

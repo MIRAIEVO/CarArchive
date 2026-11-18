@@ -84,7 +84,7 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         reserveCall();
         var body = new Dictionary<string, object> { ["model"] = settings.Model, ["input"] = input, ["store"] = false,
             ["response_format"] = new { type = "text", mime_type = "application/json", schema } };
-        if(search && settings.Search==SearchPreference.Grounded) body["tools"]=new object[]{new {type="google_search"}};
+        if(search && (planned is not null || settings.Search==SearchPreference.Grounded)) body["tools"]=new object[]{new {type="google_search"}};
         var generation=new Dictionary<string,object> { ["max_output_tokens"]=planned?.Budget??(!minimal && settings.Mode==RecognitionMode.Accurate?8192:4096) };
         // Interactions generation_config uses the provider's existing supported low/high thinking levels.
         // https://ai.google.dev/gemini-api/docs/interactions

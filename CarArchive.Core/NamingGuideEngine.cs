@@ -106,6 +106,8 @@ public static class NamingGuideEngine
         }
 
         style=NamingSupplementRules.Suffix(brand,family,model)??style;
+        if(b=="bmw" && Regex.IsMatch(family,@"^(?:3|5|7) Series$",RegexOptions.IgnoreCase))
+            model=NamingText.Clean(Regex.Replace(model,@"\bSedan\b"," ",RegexOptions.IgnoreCase));
         if(b=="chevrolet" && family.Equals("Corvette",StringComparison.OrdinalIgnoreCase))model=NamingText.Clean(Regex.Replace(model,@"\bCoupe\b","",RegexOptions.IgnoreCase));
         if(b=="mazda")model=Regex.Replace(model,@"^(?:Mazda\s*)?([236])(?=\s|$)","Mazda$1",RegexOptions.IgnoreCase);
         if(b=="toyota" && Regex.IsMatch(model,@"^(?:Land Cr[ui]+ser|Prado)\b",RegexOptions.IgnoreCase))
@@ -163,7 +165,7 @@ public static class NamingGuideEngine
         var suffix=Regex.Replace(style,@"\{(\w+)\}",m=>values.GetValueOrDefault(m.Groups[1].Value,""));
         suffix=Regex.Replace(NamingText.Clean(suffix),@"\s+,",",").Trim(' ', ',');
         if(model.Length==0) { warnings.Add("完整型号为空，请人工补充");return new("",reason,warnings); }
-        var generated=new NamingDecision(LatinText.English(NamingText.Clean(model+(suffix.Length>0?" ("+suffix+")":""))),reason,warnings);
+        var generated=new NamingDecision(NamingService.CleanGeneratedName(LatinText.English(model+(suffix.Length>0?" ("+suffix+")":""))),reason,warnings);
         var remembered=LocalNamingLearning.ApplyExact(car,state,generated);
         // Explicit supplements cannot be bypassed by an old exact-name memory.
         if(policy?.Suffix.Length>0 || policy?.ModelConvention is "AMG" or "MercedesFullSeries" || policy?.ModelConvention=="Porsche" && family is "718" or "911" or "Cayman" or "Boxster")

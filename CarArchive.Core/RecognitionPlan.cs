@@ -17,6 +17,8 @@ public sealed record RecognitionPlan(RecognitionStrength Strength, bool Online, 
     public static string DisplayLabel(string text) => text.Replace("联网识别","AI识别").Replace("Gemini识别","AI识别");
     public static bool IsOnline(AppSettings settings) => settings.Provider==RecognitionProvider.Gemini
         ? settings.Search==SearchPreference.Grounded : settings.Profile(settings.Provider).Search;
+    public static bool IsOnline(AppSettings settings,PhotoGroup group) =>
+        group.SearchOverrides.TryGetValue(settings.Provider,out var online)?online:IsOnline(settings);
     public static void SetOnline(AppSettings settings,bool online)
     {
         if(settings.Provider==RecognitionProvider.Gemini)
@@ -29,12 +31,12 @@ public sealed record RecognitionPlan(RecognitionStrength Strength, bool Online, 
     }
     public static string Model(AppSettings settings) => settings.Provider==RecognitionProvider.Gemini?settings.Model:settings.Profile(settings.Provider).Model;
 
-    public static RecognitionPlan Create(AppSettings settings,RecognitionStrength? overrideStrength=null)
+    public static RecognitionPlan Create(AppSettings settings,RecognitionStrength? overrideStrength=null,bool? overrideOnline=null)
     {
         var strength=overrideStrength ?? settings.Strength ?? FromLegacy(settings.Mode);
         if (!Enum.IsDefined(strength)) strength=RecognitionStrength.Low;
         var rank=(int)strength;
-        var online=IsOnline(settings);
+        var online=overrideOnline??IsOnline(settings);
         var model=Model(settings);
         var provider=settings.Provider;
         string[] desired=["minimal","low","medium","high","xhigh","max","max"];

@@ -35,7 +35,8 @@ public sealed class NamingService
                 return new() { Brand = brand, From = from, To = to };
         return null;
     }
-    public static string CleanGeneratedName(string value) => Regex.Replace(value.Replace(":", "").Replace("/", ""), @"\s+", " ").Trim();
+    public static string CleanGeneratedName(string value) =>
+        Regex.Replace(value, "[\\\\/:*?\"<>|：／＼＊？＂＜＞｜\\p{Cc}\\s]+", " ").Trim();
     public static string SafeSegment(string input)
     {
         var value = input.Trim();

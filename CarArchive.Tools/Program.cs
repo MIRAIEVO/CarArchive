@@ -18,7 +18,37 @@ if(args is ["probe-guide",var guidePath,var probeOutput]) {
 if(args is ["refresh-shipped",var archiveRoot,var sourceData,var resources]) {
  var source=ReadOnlyWorkspaceSnapshot.Load(sourceData);source.State.Settings.ArchiveRoot=archiveRoot;
  var built=NamingGuideBuilder.Build(archiveRoot,source.State,source.Jobs);var portable=BuiltInNamingGuide.PortableSnapshot(built);
- Directory.CreateDirectory(resources);NamingGuideStore.Save(resources,portable,source.State);
+ var actual=Directory.EnumerateDirectories(archiveRoot).SelectMany(Directory.EnumerateDirectories).Count();
+ if(portable.Inventory.Count!=actual)throw new InvalidDataException("Directory coverage is incomplete.");
+ var noteCount=Directory.EnumerateDirectories(archiveRoot).Append(archiveRoot)
+    .SelectMany(path=>Directory.EnumerateFiles(path,"*.txt")).Count(path=>Path.GetFileName(path).Contains("补充命名",StringComparison.Ordinal));
+ if(portable.Notes.Count!=noteCount)throw new InvalidDataException("Naming supplement coverage is incomplete.");
+ Directory.CreateDirectory(resources);NamingGuideStore.Save(resources,portable,new WorkspaceState());
+ string[] headings=["品牌","车系","现有分类","推演完整型号","代次","代号","改款","默认候选名","指南生成名","完全匹配原名","采用规则"];
+ var probes=new List<string[]> {headings};
+ var review=new List<string[]> {new[]{"品牌","车系","现有分类","新名称","原因"}};
+ var cleanState=new WorkspaceState();
+ foreach(var entry in portable.Inventory)
+ {
+    var identity=new CarIdentity {Brand=entry.Brand,Series=entry.Family,Variant=entry.Model,Generation=entry.Generation,
+        Code=entry.Code.Length>0?entry.Code:entry.RawCode,Phase=entry.Phase,Package=entry.Package,ProductionYears=entry.ProductionYears};
+    var decision=NamingGuideEngine.Generate(identity,cleanState,portable);
+    var name=NamingService.CleanGeneratedName(decision.Name);
+    var match=name==entry.Folder;
+    probes.Add([entry.Brand,entry.Family,entry.Folder,identity.Variant,identity.Generation,identity.Code,identity.Phase,
+        NamingService.DefaultName(identity),name,match?"是":"否",decision.Reason]);
+    if(!match)review.Add([entry.Brand,entry.Family,entry.Folder,name,decision.Reason]);
+ }
+ string Csv(IEnumerable<string[]> rows)=>string.Join("\r\n",rows.Select(row=>string.Join(",",row.Select(value=>
+     "\""+(value.Length>0 && "=+-@".Contains(value[0])?"'":"")+value.Replace("\"","\"\"")+"\""))))+"\r\n";
+ NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名输入推演.csv"),Csv(probes),true);
+ NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名差异与待复核.csv"),Csv(review),true);
+ NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名学习覆盖.json"),JsonSerializer.Serialize(new{
+    Version="1.3.1",Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Folders=actual,FamilyProfiles=portable.Profiles.Count,
+    SupplementFiles=noteCount,Probes=probes.Count-1,ExactProbeMatches=probes.Count-review.Count,DifferencesForReview=review.Count-1,
+    IdentityMatched=portable.Inventory.Count(e=>e.HasIdentity),
+    Scope="Local names and supplements; historic manufacturer evidence tables retained without claiming fresh verification."
+ },new JsonSerializerOptions {WriteIndented=true}),false);
  Console.WriteLine(JsonSerializer.Serialize(new {Folders=portable.Inventory.Count,Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Rules=portable.Profiles.Count,Notes=portable.Notes.Count,Warnings=portable.Warnings.Count}));return 0;
 }
 if(args is ["export-shipped",var data,var destination]) {
