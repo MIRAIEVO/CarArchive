@@ -28,7 +28,7 @@ public sealed partial class GeminiService
 
     public async Task<VerificationReport> VerifyAsync(IReadOnlyList<Photo> photos,AppSettings settings,CarIdentity candidate,string questions,CancellationToken ct)
     {
-        if(string.IsNullOrWhiteSpace(candidate.Series) && string.IsNullOrWhiteSpace(candidate.Variant)) throw new InvalidOperationException("请先Gemini识别或填写待查证车型，再进行深入查证。");
+        if(string.IsNullOrWhiteSpace(candidate.Series) && string.IsNullOrWhiteSpace(candidate.Variant)) throw new InvalidOperationException("请先AI识别或填写待查证车型，再进行深入查证。");
         ValidateSearch(settings);
         var report=new VerificationReport { Candidate=candidate.Clone() };
         try

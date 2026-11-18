@@ -9,7 +9,7 @@ public static class Release123Tests
    var guide=NamingGuideBuilder.Build(root,new());var entry=guide.Inventory.Single();
    if(entry.Phase!="2nd Facelift" || entry.Code!="D3")throw new Exception("Facelift ordinal lost");
    var name=NamingGuideEngine.Generate(new(){Brand="Audi",Series="A8",Variant="A8",Generation="2nd",Code="D3",Phase="2nd Facelift"},new(),guide).Name;
-   if(name!="A8 (D3 2nd Facelift)")throw new Exception(name);return Task.CompletedTask;
+   if(name!="A8 (D3 2nd_Facelift)")throw new Exception(name);return Task.CompletedTask;
   });
   test("123 release: preview refresh does not re-notify unchanged thumbnail URI",()=>
   {

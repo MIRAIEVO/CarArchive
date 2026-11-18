@@ -34,6 +34,7 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         var instructions=settings.OptimizeRecognitionTokens?TokenOptimization.RecognitionPrompt(settings.Mode):minimal?MinimalInstructions:Instructions+ProfileInstructions(settings.Mode);
         if(settings.Search==SearchPreference.Gemini) instructions=OfflineInstructions(settings.Mode);
         instructions+="\n"+IdentityFieldContract.Instructions;
+        instructions+=ProviderCatalog.ExtraPrompt(settings.GeminiPrompt);
         var input = new List<object> { new { type = "text", text = instructions } };
         foreach (var photo in selected)
         {
@@ -47,7 +48,7 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         if(settings.Mode==RecognitionMode.Accurate)
         {
             var report=new VerificationReport { Candidate=result.Identity.Clone(),Features=result.Features };
-            report.Stages.Add(new() { Name=settings.Search==SearchPreference.Grounded?"Gemini识别与特征检索":"Gemini 图像识别与特征推理",SearchEnabled=settings.Search==SearchPreference.Grounded,Result=CloneStageResult(result) });
+            report.Stages.Add(new() { Name=settings.Search==SearchPreference.Grounded?"AI识别与特征检索":"AI识别与特征推理",SearchEnabled=settings.Search==SearchPreference.Grounded,Result=CloneStageResult(result) });
             result.Verification=await CompareAsync(photos,settings,report,ct);
             // Keep initial identity intact; comparison corrections are adopted explicitly by the user.
         }
@@ -68,18 +69,27 @@ public sealed partial class GeminiService(HttpClient http, IPhotoService images,
         using var doc = await SendAsync(settings, input, true, IdentitySchema(), ct,true,true);
         return ParseRecognition(doc.RootElement, settings.Model);
     }
-    private async Task<JsonDocument> SendAsync(AppSettings settings, List<object> input, bool search, object schema, CancellationToken ct,bool minimal=false,bool allowImageProbe=false)
+    internal async Task<RecognitionResult> RecognizeRoundAsync(AppSettings settings,List<object> input,int budget,string? effort,int searchTarget,string key,CancellationToken ct)
     {
-        var key = apiKey().Trim(); if (key.Length == 0) throw new InvalidOperationException("请在设置中保存 Gemini API Key。");
+        using var document=await SendAsync(settings,input,searchTarget>0,FieldsSchema(),ct,true,false,(budget,effort,key));
+        var result=ParseRecognition(document.RootElement,settings.Model);
+        if(searchTarget==0){result.SearchCount=0;result.Queries.Clear();result.Sources.Clear();result.SearchSuggestionsHtml="";}
+        return result;
+    }
+
+    private async Task<JsonDocument> SendAsync(AppSettings settings, List<object> input, bool search, object schema, CancellationToken ct,bool minimal=false,bool allowImageProbe=false,(int Budget,string? Effort,string Key)? planned=null)
+    {
+        var key = (planned?.Key??apiKey()).Trim(); if (key.Length == 0) throw new InvalidOperationException("请在设置中保存 Gemini API Key。");
         if (!Regex.IsMatch(settings.Model, @"^[a-zA-Z0-9.\-]+$")) throw new ArgumentException("模型 ID 格式不正确。");
         reserveCall();
         var body = new Dictionary<string, object> { ["model"] = settings.Model, ["input"] = input, ["store"] = false,
             ["response_format"] = new { type = "text", mime_type = "application/json", schema } };
         if(search && settings.Search==SearchPreference.Grounded) body["tools"]=new object[]{new {type="google_search"}};
-        var generation=new Dictionary<string,object> { ["max_output_tokens"]=!minimal && settings.Mode==RecognitionMode.Accurate?8192:4096 };
+        var generation=new Dictionary<string,object> { ["max_output_tokens"]=planned?.Budget??(!minimal && settings.Mode==RecognitionMode.Accurate?8192:4096) };
         // Interactions generation_config uses the provider's existing supported low/high thinking levels.
         // https://ai.google.dev/gemini-api/docs/interactions
-        if(settings.Model.StartsWith("gemini-3",StringComparison.OrdinalIgnoreCase)||settings.Model.StartsWith("gemini-4",StringComparison.OrdinalIgnoreCase)) generation["thinking_level"]=!minimal && settings.Mode==RecognitionMode.Accurate?"high":"low";
+        if(planned is { } round) { if(round.Effort is not null) generation["thinking_level"]=round.Effort; }
+        else if(settings.Model.StartsWith("gemini-3",StringComparison.OrdinalIgnoreCase)||settings.Model.StartsWith("gemini-4",StringComparison.OrdinalIgnoreCase)) generation["thinking_level"]=!minimal && settings.Mode==RecognitionMode.Accurate?"high":"low";
         body["generation_config"]=generation;
         using var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl + "interactions") { Content = JsonContent.Create(body) };
         request.Headers.Add("x-goog-api-key", key); request.Headers.Add("Api-Revision", "2026-05-20");

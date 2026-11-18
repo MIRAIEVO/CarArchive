@@ -1,6 +1,8 @@
 ﻿# 版本说明
 
-当前版本：[1.1.5](release-notes-v1.1.5.md)。完整变化见 [CHANGELOG](../../CHANGELOG.md)。
+当前版本：[1.3](release-notes-v1.3.md)。完整变化见 [CHANGELOG](../../CHANGELOG.md)。
+
+- [1.1.5](release-notes-v1.1.5.md)
 
 - [1.1.4](release-notes-v1.1.4.md)
 - [1.1.3](release-notes-v1.1.3.md)

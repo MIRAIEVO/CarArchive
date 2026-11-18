@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
@@ -45,6 +45,16 @@ public sealed class UiMotion:DependencyObject
         if(!Enabled || !element.IsLoaded)return;
         var visual=ElementCompositionPreview.GetElementVisual(element);visual.CenterPoint=new((float)element.ActualWidth/2,(float)element.ActualHeight/2,0);
         var animation=visual.Compositor.CreateVector3KeyFrameAnimation();animation.InsertKeyFrame(1,new Vector3(scale,scale,1));animation.Duration=TimeSpan.FromMilliseconds(milliseconds);visual.StartAnimation("Scale",animation);
+    }
+    public static void PrimeFade(FrameworkElement element)
+    {
+        var visual=ElementCompositionPreview.GetElementVisual(element);visual.StopAnimation("Opacity");visual.Opacity=Enabled?0:1;
+    }
+    public static void Fade(FrameworkElement element,float from,float to,int milliseconds)
+    {
+        var visual=ElementCompositionPreview.GetElementVisual(element);visual.StopAnimation("Opacity");visual.Opacity=to;
+        if(!Enabled){visual.Opacity=to;return;}
+        var animation=visual.Compositor.CreateScalarKeyFrameAnimation();animation.InsertKeyFrame(0,from);animation.InsertKeyFrame(1,to);animation.Duration=TimeSpan.FromMilliseconds(milliseconds);visual.StartAnimation("Opacity",animation);
     }
     public static void Reveal(FrameworkElement? element,bool slide=true)
     {

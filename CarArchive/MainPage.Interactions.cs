@@ -1,4 +1,4 @@
-﻿using CarArchive.Core;
+using CarArchive.Core;
 using CarArchive.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,6 +13,11 @@ namespace CarArchive;
 
 public sealed partial class MainPage
 {
+    private static IEnumerable<DependencyObject> VisualDescendants(DependencyObject root)
+    {
+        for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)
+        {var child=VisualTreeHelper.GetChild(root,i);yield return child;foreach(var nested in VisualDescendants(child))yield return nested;}
+    }
     private static T? VisualChild<T>(DependencyObject root) where T:DependencyObject
     {
         if(root is T match) return match;
@@ -34,6 +39,7 @@ public sealed partial class MainPage
     }
     private async void Thumbnail_Loaded(object sender,RoutedEventArgs args)
     {
+        if(sender is Image loaded){TrackThumbnail(loaded);ApplyThumbnailSize(loaded);}
         if(sender is not Image { DataContext:Photo photo } || PhotoService.CurrentThumbnail(photo.ThumbnailPath) || !File.Exists(photo.Path)) return;
         try
         {
@@ -47,8 +53,31 @@ public sealed partial class MainPage
     {
         if(sender is Image { DataContext:Photo photo } && !PhotoService.CurrentThumbnail(photo.ThumbnailPath) && File.Exists(photo.Path))
         { Thumbnail_Loaded(sender,args);return; }
-        if(sender is Image { Source:BitmapImage bitmap,Parent:StackPanel panel } && bitmap.PixelHeight>0)
-            { imageThumbnailHeight=(BodyGrid.ActualHeight<600?96d:120d);((Image)sender).Height=imageThumbnailHeight;panel.Width=imageThumbnailHeight*bitmap.PixelWidth/bitmap.PixelHeight; }
+        if(sender is Image image)ApplyThumbnailSize(image);
+    }
+    private readonly Dictionary<Image,long> thumbnailSubscriptions=new();
+    private void TrackThumbnail(Image image)
+    {
+        if(thumbnailSubscriptions.ContainsKey(image))return;
+        thumbnailSubscriptions[image]=image.RegisterPropertyChangedCallback(Image.SourceProperty,(_,_)=>ApplyThumbnailSize(image));
+        image.Unloaded+=ThumbnailUnloaded;image.SizeChanged+=ThumbnailSizeChanged;
+    }
+    private void ThumbnailUnloaded(object sender,RoutedEventArgs args)
+    {
+        if(sender is Image image && thumbnailSubscriptions.Remove(image,out var token))
+        {image.UnregisterPropertyChangedCallback(Image.SourceProperty,token);image.Unloaded-=ThumbnailUnloaded;image.SizeChanged-=ThumbnailSizeChanged;}
+    }
+    private void ThumbnailSizeChanged(object sender,SizeChangedEventArgs args){if(sender is Image image)ApplyThumbnailSize(image);}
+    private void ApplyThumbnailSize(Image image)
+    {
+        if(image.Parent is not StackPanel panel)return;
+        if(image.Height!=imageThumbnailHeight)image.Height=imageThumbnailHeight;
+        if(image.Source is BitmapImage {PixelWidth:>0,PixelHeight:>0} bitmap)
+        {
+            var width=imageThumbnailHeight*bitmap.PixelWidth/bitmap.PixelHeight;
+            if(double.IsNaN(panel.Width)||Math.Abs(panel.Width-width)>.01)panel.Width=width;
+            image.Width=width;panel.MinWidth=width;image.Stretch=Stretch.Uniform;image.VerticalAlignment=VerticalAlignment.Top;
+        }
     }
     private void ThumbnailCaption_Loaded(object sender,RoutedEventArgs args)
     {
@@ -73,11 +102,61 @@ public sealed partial class MainPage
     private MenuFlyout? activeContextMenu;
     private void InitializeContextMenus()
     {
-        foreach(var menu in new[]{GroupList.ContextFlyout,PhotoList.ContextFlyout}.OfType<MenuFlyout>())
+        GroupList.AddHandler(UIElement.PointerPressedEvent,new PointerEventHandler(GroupAnchorPressed),true);
+        GroupList.GotFocus+=(_,_)=> {if(FocusManager.GetFocusedElement(XamlRoot) is DependencyObject focused && GroupFromNode(focused) is {} group){lastMergeSelection=group;DispatcherQueue.TryEnqueue(UpdateMergeSelection);}};
+        foreach(var menu in new[]{GroupList.ContextFlyout,PhotoList.ContextFlyout}.OfType<MenuFlyout>())WireContextCommands(menu);
+    }
+    private void WireContextCommands(MenuFlyout menu)
+    {
+        PhotoGroup? owner=null;PhotoGroup[] groups=[];Photo[] photos=[];var dispatched=false;var open=false;
+        menu.AreOpenCloseAnimationsEnabled=true;
+        menu.Opening+=(_,_)=>{open=true;activeContextMenu=menu;owner=VM.Selected;groups=GroupList.SelectedItems.OfType<PhotoGroup>().ToArray();photos=PhotoList.SelectedItems.OfType<Photo>().ToArray();dispatched=false;};
+        menu.Closed+=(_,_)=>{open=false;if(activeContextMenu==menu)activeContextMenu=null;};
+        foreach(var item in menu.Items.OfType<MenuFlyoutItem>())
         {
-            menu.Opening+=(_,_)=>activeContextMenu=menu;
-            menu.Closed+=(_,_)=> {if(activeContextMenu==menu)activeContextMenu=null;};
+            RoutedEventHandler? handler=item.Name switch {
+                "MergeGroupsMenu"=>Merge_Click,"DuplicateGroupMenu"=>Duplicate_Click,"DeleteGroupsMenu"=>DeleteImportedGroup_Click,
+                "RecycleGroupsMenu"=>RecycleGroups_Click,"DeleteArchivedMenu"=>DeleteAllArchivedGroups_Click,
+                "SplitPhotosMenu"=>Split_Click,"CopyPhotosMenu"=>CopyPhotos_Click,"RemovePhotosMenu"=>RemovePhotos_Click,"RecyclePhotosMenu"=>RecyclePhotos_Click,
+                _=>item.Text=="撤回本组操作"?UndoGroup_Click:item.Text=="重做本组操作"?RedoGroup_Click:null};
+            if(handler is null)continue;
+            void Dispatch()
+            {
+                if(dispatched||!item.IsEnabled)return;dispatched=true;
+                var target=owner;var selectedGroups=groups;var selectedPhotos=photos;
+                void QueueCommand()=>DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,()=>
+                {
+                    if(categoryClosed||VM.Selected!=target||target is null||!VM.Groups.Contains(target)){VM.Status="分组已切换，请重新操作。";return;}
+                    if(menu==GroupList.ContextFlyout){GroupList.SelectedItems.Clear();foreach(var group in selectedGroups.Where(VM.Groups.Contains))GroupList.SelectedItems.Add(group);}
+                    else {PhotoList.SelectedItems.Clear();foreach(var photo in selectedPhotos.Where(target.Photos.Contains))PhotoList.SelectedItems.Add(photo);}
+                    CrashJournal.Trace("Menu.Execute."+item.Text,target.Id);handler(item,new RoutedEventArgs());
+                });
+                if(open){void Closed(object? sender,object args){menu.Closed-=Closed;QueueCommand();}menu.Closed+=Closed;menu.Hide();}
+                else QueueCommand();
+            }
+            item.Click+=(_,_)=>Dispatch();
+            item.AddHandler(UIElement.PointerReleasedEvent,new PointerEventHandler((_,args)=>
+            {
+                if(args.GetCurrentPoint(item).Properties.PointerUpdateKind==Microsoft.UI.Input.PointerUpdateKind.LeftButtonReleased){Dispatch();args.Handled=true;}
+            }),true);
         }
+    }
+    private async Task DismissContextAsync()
+    {
+        if(activeContextMenu is not {} menu)return;
+        var group=VM.Selected;menu.Hide();
+        var ready=new TaskCompletionSource();DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,()=>ready.TrySetResult());await ready.Task;
+        if(categoryClosed||VM.Selected!=group)throw new InvalidOperationException("分组已切换，请重新操作。");
+    }
+    private PhotoGroup? GroupFromNode(DependencyObject? node)
+    {
+        for(;node is not null;node=VisualTreeHelper.GetParent(node))if(node is ListViewItem {Content:PhotoGroup group})return group;
+        return null;
+    }
+    private void GroupAnchorPressed(object sender,PointerRoutedEventArgs args)
+    {
+        if(args.GetCurrentPoint(GroupList).Properties.IsLeftButtonPressed && GroupFromNode(args.OriginalSource as DependencyObject) is {} group)
+        {lastMergeSelection=group;DispatcherQueue.TryEnqueue(UpdateMergeSelection);}
     }
     private PhotoGroup? lastMergeSelection;
     private ScrollViewer? mergeScroll;
@@ -85,9 +164,8 @@ public sealed partial class MainPage
     private double mergeAnchorContentY,mergeAnchorHeight;
     private void TrackMergeSelection(SelectionChangedEventArgs args)
     {
-        lastMergeSelection=args.AddedItems.OfType<PhotoGroup>().LastOrDefault() ?? lastMergeSelection;
         if(lastMergeSelection is null || !GroupList.SelectedItems.Contains(lastMergeSelection))
-            lastMergeSelection=GroupList.SelectedItems.OfType<PhotoGroup>().LastOrDefault();
+            lastMergeSelection=VM.Selected is {} current && GroupList.SelectedItems.Contains(current)?current:GroupList.SelectedItems.OfType<PhotoGroup>().FirstOrDefault();
     }
     private void InitializeMergeTracking()
     {
@@ -136,14 +214,14 @@ public sealed partial class MainPage
         RecyclePhotosMenu.IsEnabled=editable;
         CrashJournal.Trace("Menu.Photos",VM.Selected?.Id,count);
     }
-    private async void CopyPhotos_Click(object sender,RoutedEventArgs e) { try { FlushEditor();var before=new Dictionary<string,string>();var copied=await VM.DuplicatePhotosAsync(RequireGroup(),PhotoList.SelectedItems.OfType<Photo>().ToArray(),default);VM.RecordEdits(before,new(){copied.Id});RenderSelection(); }catch(Exception error) { VM.Status=error.Message; } }
+    private async void CopyPhotos_Click(object sender,RoutedEventArgs e) { try {var group=RequireGroup();var selected=PhotoList.SelectedItems.OfType<Photo>().ToArray();await DismissContextAsync();FlushEditor();var before=new Dictionary<string,string>();var copied=await VM.DuplicatePhotosAsync(group,selected,default);VM.RecordEdits(before,new(){copied.Id});RenderSelection(); }catch(Exception error) { VM.Status=error.Message; } }
     private void RemovePhotos_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("removePhotos",sender,e);
     private async Task RemovePhotosCoreAsync()
     {
         try
         {
             var group=RequireGroup();var selected=PhotoList.SelectedItems.OfType<Photo>().ToArray();
-            GroupPhotoEditor.Validate(group,selected);
+            await DismissContextAsync();GroupPhotoEditor.Validate(group,selected);
             if(!await ConfirmAsync("removePhotos","从本组移除照片",new TextBlock { Text=$"仅移除本组中选中的 {selected.Length} 张照片引用，源照片和其他分组保持不变。",TextWrapping=TextWrapping.Wrap },"移除")) return;
             LocalAction(()=>VM.RemovePhotos(group,selected));
         } catch(Exception error) { VM.Status=error.Message; }

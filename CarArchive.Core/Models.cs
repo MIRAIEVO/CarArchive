@@ -102,6 +102,8 @@ public sealed class CarIdentity
 public sealed record Citation(string Title, string Url, string Claim);
 public sealed class RecognitionResult
 {
+    public List<RecognitionRoundReport> Rounds { get; set; } = [];
+    public string RoundNotice { get; set; } = "";
     public List<ReferenceFeature> Features { get; set; } = [];
     public List<FeatureComparison> Checks { get; set; } = [];
     public string Summary { get; set; } = "";
@@ -140,6 +142,7 @@ public sealed class PhotoGroup : Observable
     public string RepresentativeId { get; set; } = "";
     public string LastViewedId { get; set; } = "";
     public RecognitionMode Mode { get; set; } = RecognitionMode.FieldsOnly;
+    public RecognitionStrength? Strength { get; set; }
     public bool UploadMultiple { get; set; }
     [JsonIgnore] public List<Photo>? PendingUploadPhotos {get;set;}
     [JsonIgnore] public HashSet<string> UploadingPhotoIds { get; set; } = [];
@@ -157,8 +160,8 @@ public sealed class PhotoGroup : Observable
     [JsonIgnore] public string TaskColor => Archived?"#00000000":TaskState switch { GroupTaskState.Running=>"#DF4050",GroupTaskState.Completed=>"#23A46B",GroupTaskState.Failed or GroupTaskState.Canceled=>"#D89920",_=>"#929AA5" };
     [JsonIgnore] public double DisplayOpacity => Archived?0.52:1;
     [JsonIgnore] public double ArchivedStrikeOpacity => Archived?0.8:0;
-    [JsonIgnore] private string DisplayTaskKind => TaskKind.Replace("联网识别","Gemini识别");
-    [JsonIgnore] public string TaskLabel => TaskState switch { GroupTaskState.Queued=>DisplayTaskKind+" · 排队",GroupTaskState.Running=>DisplayTaskKind+" · 进行中",GroupTaskState.Completed=>DisplayTaskKind+" · 已完成",GroupTaskState.Failed=>DisplayTaskKind+" · "+LastError,GroupTaskState.Canceled=>DisplayTaskKind+" · 已取消",_=>State.Replace("联网识别","Gemini识别") };
+    [JsonIgnore] private string DisplayTaskKind => RecognitionPlan.DisplayLabel(TaskKind);
+    [JsonIgnore] public string TaskLabel => TaskState switch { GroupTaskState.Queued=>DisplayTaskKind+" · 排队",GroupTaskState.Running=>DisplayTaskKind+" · 进行中",GroupTaskState.Completed=>DisplayTaskKind+" · 已完成",GroupTaskState.Failed=>DisplayTaskKind+" · "+LastError,GroupTaskState.Canceled=>DisplayTaskKind+" · 已取消",_=>RecognitionPlan.DisplayLabel(State) };
     public string State { get; set; } = "待复核分组";
     public RecognitionResult? Suggestion { get; set; }
     public VerificationReport? Verification { get; set; }
@@ -191,6 +194,13 @@ public sealed class NamingRule
 public sealed record LearnedName(string IdentityKey, string Brand, string FolderName);
 public sealed class AppSettings
 {
+    public RecognitionStrength DefaultStrength { get; set; } = RecognitionStrength.Low;
+    public RecognitionStrength? Strength { get; set; }
+    public RecognitionProvider Provider { get; set; }
+    public Dictionary<RecognitionProvider, ProviderProfile> ProviderProfiles { get; set; } = [];
+    public string GeminiPrompt { get; set; } = "";
+    public ProviderProfile Profile(RecognitionProvider provider) =>
+        ProviderProfiles.TryGetValue(provider, out var profile) ? profile : new() { Model = ProviderCatalog.Models(provider)[0] };
     public bool UploadMultiple { get; set; }
     public bool ImportVideos { get; set; } = true;
     public bool AutoApplyPastedJson { get; set; }

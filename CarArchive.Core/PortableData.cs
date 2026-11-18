@@ -102,11 +102,13 @@ public static class PortableData
                     if(!SHA256.HashData(inputFile).SequenceEqual(SHA256.HashData(outputFile))) throw new IOException("迁移文件校验失败："+relative);
                 }
             }
-            var key=System.IO.Path.Combine(source,"gemini-key.bin");
-            if(File.Exists(key))
+            foreach(var provider in Enum.GetValues<RecognitionProvider>())
             {
+                var filename=ProviderCatalog.KeyFile(provider);
+                var key=System.IO.Path.Combine(source,filename);
+                if(!File.Exists(key))continue;
                 if(File.GetAttributes(key).HasFlag(FileAttributes.ReparsePoint)) throw new IOException("迁移来源的 Key 文件不能是链接。");
-                var target=System.IO.Path.Combine(temporary,"gemini-key.bin");File.Copy(key,target);
+                var target=System.IO.Path.Combine(temporary,filename);File.Copy(key,target);
                 using var input=File.OpenRead(key);using var output=File.OpenRead(target);
                 if(!SHA256.HashData(input).SequenceEqual(SHA256.HashData(output))) throw new IOException("API Key 复制校验失败。");
             }

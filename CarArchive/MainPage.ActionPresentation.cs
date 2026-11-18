@@ -1,4 +1,4 @@
-﻿using CarArchive.Core;
+using CarArchive.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -6,7 +6,23 @@ using Microsoft.UI.Xaml.Media;
 namespace CarArchive;
 public sealed partial class MainPage
 {
-    private void InitializeActionPalette()=>ActualThemeChanged+=(_,_)=>RefreshActionPresentation();
+    private bool recognitionHovered,recognitionPressed;
+    private void InitializeActionPalette()
+    {
+        ActualThemeChanged+=(_,_)=>RefreshActionPresentation();
+        RecognizeActionButton.PointerEntered+=(_,_)=>{recognitionHovered=true;ApplyRecognitionColor();};
+        RecognizeActionButton.PointerExited+=(_,_)=>{recognitionHovered=false;recognitionPressed=false;ApplyRecognitionColor();};
+        RecognizeActionButton.AddHandler(UIElement.PointerPressedEvent,new Microsoft.UI.Xaml.Input.PointerEventHandler((_,_)=>{recognitionPressed=true;ApplyRecognitionColor();}),true);
+        RecognizeActionButton.AddHandler(UIElement.PointerReleasedEvent,new Microsoft.UI.Xaml.Input.PointerEventHandler((_,_)=>{recognitionPressed=false;ApplyRecognitionColor();}),true);
+    }
+    private void ApplyRecognitionColor()
+    {
+        var cancel=VM.Selected is {IsWorking:true,TaskKind:"联网识别"};
+        if(cancel)RecognizeActionButton.Background=(Brush)Resources[recognitionPressed?"ReversalPressedBrush":recognitionHovered?"ReversalHoverBrush":"ReversalBackgroundBrush"];
+        else RecognizeActionButton.ClearValue(Control.BackgroundProperty);
+        VisualStateManager.GoToState(RecognizeActionButton,"Normal",false);
+        VisualStateManager.GoToState(RecognizeActionButton,recognitionPressed?"Pressed":recognitionHovered?"PointerOver":"Normal",false);
+    }
     private void SetReversalPalette(Control button,bool enabled)
     {
         foreach(var key in new[]{"ButtonBackground","ButtonBackgroundPointerOver","ButtonBackgroundPressed","AppBarButtonBackgroundPointerOver","AppBarButtonBackgroundPressed"})
@@ -19,10 +35,10 @@ public sealed partial class MainPage
         if(!initialized) return;
         RestoreFolderNameButton.IsEnabled=VM.Selected is {Editable:true,PreviousFolderName.Length:>0};
         var cancel=VM.Selected is {IsWorking:true,TaskKind:"联网识别"};
-        RecognizeActionButton.Label=cancel?"取消识别":"Gemini识别";
+        RecognizeActionButton.Label=cancel?"取消识别":"AI识别";
         RecognizeActionButton.Icon=new SymbolIcon(cancel?Symbol.Cancel:Symbol.Find);
-        RecognizeActionButton.Style=(Style)Resources[cancel?"RecognitionCancelButtonStyle":"RecognitionButtonStyle"];
-        SetReversalPalette(RecognizeActionButton,cancel);
+        RecognizeActionButton.Style=(Style)Resources[cancel?"CancelRecognitionActionStyle":"RecognizeActionStyle"];
+        SetReversalPalette(RecognizeActionButton,cancel);ApplyRecognitionColor();
         var undo=VM.Selected?.Archived==true;
         SetReversalPalette(ArchiveActionButton,undo);
         ArchiveActionButton.Content=undo?"撤回移动":"确认并移动";

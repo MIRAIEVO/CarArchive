@@ -14,7 +14,7 @@ public sealed partial class MainViewModel
     {
         if(source.Archived || source.FilesPending || (source.IsWorking && source.TaskKind!="联网识别")) throw new InvalidOperationException("本组当前不可复制。");
         if(photos.Count==0 || photos.Any(p=>!source.Photos.Contains(p))) throw new InvalidOperationException("请选择本组中的照片。");
-        var copy=new PhotoGroup { Photos=new(photos.Select(p=>p.CopyReference(true))),UserTouched=true,State="复制组" };copy.FilesPending=true;copy.State="正在准备独立照片副本";MarkTouched(source);
+        var copy=new PhotoGroup { Photos=new(photos.Select(p=>p.CopyReference(true))),UserTouched=true,State="复制组",Strength=State.Settings.DefaultStrength };copy.FilesPending=true;copy.State="正在准备独立照片副本";MarkTouched(source);
         Groups.Insert(Groups.IndexOf(source)+1,copy);Selected=copy;Save();StructureUpdated?.Invoke();PhotoFileOperation? operation=null;var applied=false;
         using var linked=CancellationTokenSource.CreateLinkedTokenSource(ct,shutdown.Token);
         await Tasks.RunManyAsync(source.IsWorking?new[]{copy}:new[]{source,copy},"复制独立分组",true,async token=>

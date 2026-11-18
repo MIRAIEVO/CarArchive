@@ -4,7 +4,7 @@ namespace CarArchive.Core;
 public static class ModelCatalog
 {
  // Official model catalog verified 2026-11-16: https://aistudio.google.com/docs/models
- public static readonly string[] BuiltIn=["gemini-3.8-flash","gemini-4-hydrogen","gemini-4-argon","gemini-4-carbon","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.1-pro-preview"];
+ public static readonly string[] BuiltIn=["gemini-3.8-flash","gemini-4-hydrogen","gemini-4-argon","gemini-4-carbon","gemini-3.7-flash","gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.1-pro-preview","gemini-3.1-flash-lite","gemini-3-flash-preview","gemini-3-pro-preview"];
  public static async Task<IReadOnlyList<string>> FetchAsync(HttpClient http,string key,CancellationToken ct)
  {
   if(string.IsNullOrWhiteSpace(key))throw new InvalidOperationException("请先填写 API Key。");var models=new HashSet<string>(StringComparer.OrdinalIgnoreCase);string? page=null;

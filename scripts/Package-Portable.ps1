@@ -1,4 +1,4 @@
-﻿param([string]$Version='1.2.4',[switch]$NoRestore)
+﻿param([string]$Version='1.2.5',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}
@@ -47,7 +47,7 @@ foreach($name in @('命名指南.csv','命名扫描清单.csv','说明与补充�
 CarArchive portable edition
 Run CarArchive.exe in the package root. Keep the Program folder alongside it.
 The launcher uses the .NET Framework included with supported Windows; the app is self-contained.
-Release 1.2.4: compact fixed recognition button, stronger red cancellation/undo palette with lighter hover, and responsive system-aware interaction animations.
+Release 1.3: multi-provider image recognition, seven strengths, configurable defaults and OpenAI streaming for higher strengths.
 Brand, series and model naming guidance is bundled for offline use; existing archive folders are not renamed.
 Authors: MIRAIEVO, Codex (OpenAI), GitHub Copilot (Microsoft).
 '@ | Set-Content -LiteralPath (Join-Path $docs 'Release-Notes.txt') -Encoding utf8
@@ -60,7 +60,7 @@ API credentials are DPAPI-protected for the current Windows user.
 # Refuse to publish a package carrying workspace data or credentials.
 if(@(Get-ChildItem -LiteralPath $data -Force).Count -ne 0){throw 'The package Data directory must be empty.'}
 $forbidden=Get-ChildItem -LiteralPath $releaseRoot -File -Recurse | Where-Object {
-    $_.Name -eq 'gemini-key.bin' -or $_.Name -match '[.]db(?:-shm|-wal)?$'
+    $_.Name -match '-key[.]bin(?:[.]tmp)?$' -or $_.Name -match '[.]db(?:-shm|-wal)?$'
 }
 if($forbidden){throw 'Unexpected workspace database or credential in release output.'}
 if(@(Get-ChildItem -LiteralPath $releaseRoot -File).Count -ne 1 -or !(Test-Path -LiteralPath $launcher)){throw 'The package root must contain only the launcher EXE.'}

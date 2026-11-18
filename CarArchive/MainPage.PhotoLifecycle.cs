@@ -47,7 +47,7 @@ public sealed partial class MainPage
     {
         try
         {
-            FlushEditor();var groups=GroupList.SelectedItems.OfType<PhotoGroup>().Distinct().ToArray();if(groups.Length==0) return;
+            await DismissContextAsync();FlushEditor();var groups=GroupList.SelectedItems.OfType<PhotoGroup>().Distinct().ToArray();if(groups.Length==0) return;
             var jobs=VM.Store.Jobs();foreach(var group in groups) ValidateRecycleGroup(group,group.Photos.ToArray(),jobs);
             if(!await ConfirmAsync("recycleGroups","删除分组并回收源照片",RecycleMessage(groups.SelectMany(g=>g.Photos),groups.Length),"移入回收站")) return;
             await VM.RecycleGroupsAsync(groups);RenderSelection();
@@ -58,7 +58,7 @@ public sealed partial class MainPage
     {
         try
         {
-            FlushEditor();var group=RequireGroup();var selected=PhotoList.SelectedItems.OfType<Photo>().ToArray();ValidateRecycleGroup(group,selected,VM.Store.Jobs());
+            FlushEditor();var group=RequireGroup();var selected=PhotoList.SelectedItems.OfType<Photo>().ToArray();await DismissContextAsync();ValidateRecycleGroup(group,selected,VM.Store.Jobs());
             if(!await ConfirmAsync("recyclePhotos","删除组内图片并回收源照片",RecycleMessage(selected,1),"移入回收站")) return;
             await VM.RecyclePhotosAsync(group,selected);RenderSelection();
         }

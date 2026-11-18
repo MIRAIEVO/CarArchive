@@ -151,6 +151,7 @@ public static class NamingGuideEngine
         model=NamingText.RemoveRepeatedBodyTerms(model);
         var number=Regex.Match(generation,@"^\d+").Value;
         var roman=number.Length>0?NamingText.Roman(int.Parse(number)):"";
+        phase=Regex.Replace(phase,@"\b(\d+(?:st|nd|rd|th))[ _]+Facelift\b","$1_Facelift",RegexOptions.IgnoreCase);
         var values=new Dictionary<string,string> { ["generation"]=generation,["number"]=number,["roman"]=roman,["code"]=code,["phase"]=phase,["years"]=years };
         // If a required identity is missing, do not emit a misleading phase-only parenthesis.
         var primary=Regex.Matches(style,@"\{(generation|number|roman|code|years)\}").Select(m=>m.Groups[1].Value).ToList();

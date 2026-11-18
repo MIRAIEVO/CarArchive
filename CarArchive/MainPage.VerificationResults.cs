@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using CarArchive.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -19,7 +19,7 @@ public sealed partial class MainPage
         void Resize(DependencyObject node)
         {
             if(node is Image { Parent:StackPanel panel,Source:BitmapImage bitmap } image && bitmap.PixelHeight>0)
-            { image.Height=imageThumbnailHeight;panel.Width=imageThumbnailHeight*bitmap.PixelWidth/bitmap.PixelHeight; }
+            {ApplyThumbnailSize(image);}
             for(var i=0;i<VisualTreeHelper.GetChildrenCount(node);i++) Resize(VisualTreeHelper.GetChild(node,i));
         }
     }
@@ -58,9 +58,31 @@ public sealed partial class MainPage
     }
     private static long? TokenValue(RecognitionResult result,string field)
     {
-        try { using var doc=System.Text.Json.JsonDocument.Parse(result.RawUsage);return doc.RootElement.TryGetProperty(field,out var token) && token.TryGetInt64(out var n)?n:null; } catch(System.Text.Json.JsonException) { return null; }
+        try
+        {
+            using var doc=System.Text.Json.JsonDocument.Parse(result.RawUsage);
+            var usage=doc.RootElement;
+            var alternate=field switch {"total_input_tokens"=>"input_tokens","total_output_tokens"=>"output_tokens",_=>field};
+            return (usage.TryGetProperty(field,out var value) || usage.TryGetProperty(alternate,out value))
+                && value.ValueKind==System.Text.Json.JsonValueKind.Number && value.TryGetInt64(out var tokens)?tokens:null;
+        }
+        catch(System.Text.Json.JsonException) { return null; }
     }
     private static string Token(RecognitionResult result,string field)=>TokenValue(result,field)?.ToString()??"未知";
+    private static long? RoundToken(RecognitionRoundReport round,string field)
+        => TokenValue(new RecognitionResult {RawUsage=round.Usage},field);
+    private static string RecognitionUsage(RecognitionResult result,string field)
+    {
+        if(result.Rounds.Count==0)return Token(result,field);
+        var values=result.Rounds.Select(round=>RoundToken(round,field)).ToArray();
+        return values.All(value=>value.HasValue)?values.Sum().ToString()??"未知":"未知";
+    }
+    private static string RecognitionRoundDetails(RecognitionResult result)
+    {
+        var lines=result.Rounds.Select((round,index)=>
+            $"第 {index+1} 轮 · 思考 {round.Effort??"模型默认"} · 输入 {RoundToken(round,"total_input_tokens")?.ToString()??"未知"} / 输出 {RoundToken(round,"total_output_tokens")?.ToString()??"未知"} / 思考 {round.ThinkingTokens?.ToString()??"未知"} · 搜索 {round.SearchCount?.ToString()??"未知"}");
+        return (result.Rounds.Count==0?"":"\n"+string.Join("\n",lines))+(result.RoundNotice.Length==0?"":"\n"+result.RoundNotice);
+    }
     private static string TotalToken(VerificationReport report,string field)
     {
         var values=report.Stages.Select(s=>TokenValue(s.Result,field)).ToList();return values.Count>0 && values.All(n=>n.HasValue)?values.Sum(n=>n!.Value).ToString():values.Any(n=>n.HasValue)?"未知（已知部分 "+values.Where(n=>n.HasValue).Sum(n=>n!.Value)+"）":"未知";

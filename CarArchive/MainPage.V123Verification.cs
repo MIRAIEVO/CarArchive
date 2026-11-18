@@ -42,7 +42,7 @@ public sealed partial class MainPage
    await Task.Delay(60);Check(Math.Abs(RecognizeActionButton.ActualWidth-fixedWidth)<1&&Math.Abs(RecognizeActionButton.TransformToVisual(this).TransformPoint(new()).X-fixedX)<1,"Recognition and cancellation retain width and position");
    Check(RecognizeActionButton.Resources.ContainsKey("AppBarButtonBackgroundPointerOver"),"Cancellation keeps a dedicated red hover palette");
    var copy=await VM.DuplicateAsync(named);RenderSelection();Check(copy.Confirmed.Brand.Length==0&&copy.Suggestion is null&&copy.FolderName.Length==0&&copy.TaskState==GroupTaskState.Idle&&named.IsWorking,"Copy during recognition creates an independent unrecognized group");
-   VM.Selected=named;RenderSelection();ExecuteCommand("recognize",this,new());await task;await Task.Delay(60);Check(!named.IsWorking&&RecognizeActionButton.Label=="Gemini识别","Same command cancels and restores recognition action");
+   VM.Selected=named;RenderSelection();ExecuteCommand("recognize",this,new());await task;await Task.Delay(60);Check(!named.IsWorking&&RecognizeActionButton.Label=="AI识别","Same command cancels and restores recognition action");
    VM.State.Settings.ArchiveRoot=Path.Combine(directory,"archive");VM.SaveHeader();var hashes=new List<string>();foreach(var photo in named.Photos)hashes.Add(await ArchiveService.HashAsync(photo.Path));
    await ArchiveCoreAsync();await Task.Delay(80);Check(named.Archived&&!ModalOpen(),"Archive executes directly without confirmation modal");
    copy.Confirmed=new(){Brand="Audi",Series="A4",Variant="A4 Avant",Code="B9"};VM.GenerateName(copy);copy.FolderName="Other A4";copy.ManualName=true;VM.SaveGroup(copy);VM.Selected=copy;RenderSelection();await ArchiveCoreAsync();

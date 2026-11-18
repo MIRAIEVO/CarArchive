@@ -48,7 +48,7 @@ public sealed partial class MainViewModel : Observable
     {
         Store=new StateStore(DataDirectory); State=Store.Load(); ArchiveService.Reconcile(State,Store.Jobs());
         Groups=new(State.Groups); Credentials=new(DataDirectory); Images=new(Path.Combine(DataDirectory,"cache"));
-        Gemini=new(http,Images,Credentials.Read,ReserveCall); Recognition=Gemini; Archive=new(Store);
+        Gemini=new(http,Images,Credentials.Read,ReserveCall); Recognition=new ProviderRecognitionService(http,Images,Gemini,Credentials.Read,ReserveCall); Archive=new(Store);
         Selected=Groups.FirstOrDefault(g=>!g.Archived) ?? Groups.FirstOrDefault();
         if(Store.Jobs().Any(j=>j.Status is "Pending" or "Interrupted")) Status="存在中断操作，请在“操作记录”中检查并恢复。";
     }
@@ -125,7 +125,7 @@ public sealed partial class MainViewModel : Observable
         var batchId=Guid.NewGuid().ToString("N");
         var imported=singleGroup?new List<PhotoGroup>{new() { Photos=new(photos),UserTouched=true,State="待识别",ImportBatchId=batchId }}
             :photos.Select(p=>new PhotoGroup { Photos=[p],ImportBatchId=batchId,State="正在读取拍摄信息" }).ToList();
-        foreach(var group in imported) Groups.Add(group);
+        foreach(var group in imported) {group.Strength=State.Settings.DefaultStrength;Groups.Add(group);}
         State.BatchId=batchId;State.BatchCalls=0; Selected=imported[0];Save();
         Status=$"已登记 {files.Count} 张，可立即操作。缩略图将在后台逐步显示。";
         StructureUpdated?.Invoke();
@@ -153,7 +153,7 @@ public sealed partial class MainViewModel : Observable
                     if(!unchanged)
                     {
                         foreach(var g in untouched) Groups.Remove(g);
-                        foreach(var g in regrouped) { g.ImportBatchId=imported[0].ImportBatchId;g.State="待识别";Groups.Insert(Math.Min(position++,Groups.Count),g); }
+                        foreach(var g in regrouped) { g.Strength=imported[0].Strength;g.ImportBatchId=imported[0].ImportBatchId;g.State="待识别";Groups.Insert(Math.Min(position++,Groups.Count),g); }
                         if(selectionWasUntouched) Selected=regrouped.FirstOrDefault();
                         StructureUpdated?.Invoke();
                     }
@@ -179,10 +179,11 @@ public sealed partial class MainViewModel : Observable
         if(group.Archived) throw new InvalidOperationException("已归档组请先撤销。");
         var settings=capturedSettings ?? CaptureSettings();
         settings.Mode=group.Mode;settings.ExplicitUploadSelection=true;
+        settings.Strength??=group.Strength??RecognitionPlan.FromLegacy(group.Mode);
         var photos=group.PendingUploadPhotos??UploadSelection.Select(group,State.Settings.UploadMultiple);group.UploadingPhotoIds=photos.Select(p=>p.Id).ToHashSet();
         if(deep)
         {
-            if(group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先联网识别或填写待查证车型。");
+            if(group.Confirmed.Series.Length==0 && group.Confirmed.Variant.Length==0) throw new InvalidOperationException("请先AI识别或填写待查证车型。");
             var report=await Recognition.VerifyAsync(photos,settings,group.Confirmed.Clone(),group.Suggestion?.Uncertainties ?? "核对车系、代次、改款及具体版本是否有照片证据",ct);
             StoreVerification(group,report);group.State=report.StatusText;SaveGroup(group);
             if(report.Status==VerificationStatus.Canceled) throw new OperationCanceledException(ct);
@@ -192,7 +193,7 @@ public sealed partial class MainViewModel : Observable
         var result=await Recognition.RecognizeAsync(photos,settings,false,ct);
         ct.ThrowIfCancellationRequested();await PrepareNamingGuideAsync();ct.ThrowIfCancellationRequested();
         ApplyRecognitionResult(group,result);
-        group.State="Gemini识别完成";
+        group.State="AI识别完成";
         SaveGroup(group);
     }
     public void ApplyRecognitionResult(PhotoGroup group,RecognitionResult result)
@@ -236,7 +237,7 @@ public sealed partial class MainViewModel : Observable
         CrashJournal.Trace("Photos.Split",group.Id,chosen.Count);
         if(chosen.Any(p=>!group.Photos.Contains(p))) throw new InvalidOperationException("所选照片不属于当前组。");
         if(group.IsWorking && group.TaskKind=="联网识别") { if(chosen.Any(p=>group.UploadingPhotoIds.Contains(p.Id))) throw new InvalidOperationException("不能拆分正在上传的照片。"); } else RequireEditable(group);if(chosen.Count==0 || chosen.Count==group.Photos.Count) throw new InvalidOperationException("请选中需要拆出的部分照片。");
-        var newGroup=new PhotoGroup { Photos=new(chosen),UserTouched=true,State="待识别" };
+        var newGroup=new PhotoGroup { Photos=new(chosen),UserTouched=true,State="待识别",Strength=State.Settings.DefaultStrength };
         foreach(var p in chosen) group.Photos.Remove(p);
         group.UserTouched=true;group.Revision++;group.Suggestion=null;if(group.Verification is not null) group.VerificationHistory.Add(group.Verification);group.Verification=null;group.State="分组已改变";
         Groups.Insert(Groups.IndexOf(group)+1,newGroup); Selected=newGroup;Save();StructureUpdated?.Invoke();

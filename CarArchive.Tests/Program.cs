@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using CarArchive.Core;
@@ -12,6 +12,12 @@ string Area() { var p=Path.Combine(temp,Guid.NewGuid().ToString("N")); Directory
 PhotoGroup Group(string path) => new() { Photos=[new() { Path=path,OriginalPath=path }],GroupConfirmed=true };
 async Task<string> Source(string area,string name="photo.jpg",string content="original photo bytes") { var p=Path.Combine(area,name); await File.WriteAllTextAsync(p,content); return p; }
 
+Test("Numbered facelift uses underscore without changing generation-only facelift",()=> {
+ Assert(NamingService.DefaultName(new(){Brand="Example",Series="Car",Generation="3rd",Phase="2nd Facelift"})=="Car (3rd 2nd_Facelift)");
+ Assert(NamingService.DefaultName(new(){Brand="Example",Series="Car",Generation="3rd",Phase="Facelift"})=="Car (3rd Facelift)");
+ Assert(NamingService.DefaultName(new(){Brand="Example",Series="Car",Generation="1st",Phase="1st_Facelift"})=="Car (1st 1st_Facelift)");
+ return Task.CompletedTask;
+});
 Test("Default names use complete model and ordinal generation, never Body or a chassis fallback",()=> {
     Assert(NamingService.DefaultName(new() { Brand="Example",Series="A4",Variant="A4 Avant S-line",Body="Avant",Generation="5th Generation",Package="S-line",Code="B9",Phase="Facelift" })=="A4 Avant S-line (5th Facelift)");
     Assert(NamingService.DefaultName(new() { Series="S-Class",Code="W223" })=="S-Class");
@@ -238,6 +244,8 @@ Test("Requests include real search tool, image data, revision and no stored inte
 });
 PhotoLifecycleTests.Register(Test);
 V2Tests.Register(Test);
+ProviderTests.Register(Test);
+RecognitionStrengthTests.Register(Test);
 NamingTests.Register(Test);
 BuiltInNamingTests.Register(Test);
 UploadSelectionTests.Register(Test);

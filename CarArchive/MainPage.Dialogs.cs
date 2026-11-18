@@ -16,17 +16,25 @@ public sealed partial class MainPage
         if(VM.Busy) return;
         try
         {
-            var key=new PasswordBox { Header="Gemini API Key（Windows 当前用户加密保存）",Password=VM.Credentials.Read() };
-            var model=new ComboBox { Header="模型 ID（可选择或自行输入）",IsEditable=true,ItemsSource=ModelCatalog.BuiltIn.Append(VM.State.Settings.Model).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),SelectedItem=VM.State.Settings.Model,Text=VM.State.Settings.Model,HorizontalAlignment=HorizontalAlignment.Stretch };
-            var search=new ComboBox {Header="识别方式",HorizontalAlignment=HorizontalAlignment.Stretch,ItemsSource=new[]{"Gemini（默认，不联网检索）","Gemini + Google Search grounded"},SelectedIndex=VM.State.Settings.Search==SearchPreference.Grounded?1:0};
+            var settings=VM.State.Settings;
+            var providers=Enum.GetValues<RecognitionProvider>();
+            var providerBox=new ComboBox { Header="识别厂商",ItemsSource=providers.Select(p=>p.ToString()).ToArray(),HorizontalAlignment=HorizontalAlignment.Stretch };
+            var key=new PasswordBox { Header="API Key（由 Windows 当前用户加密）" };
+            var model=new ComboBox { Header="模型 ID（可选择或自行输入）",IsEditable=true,HorizontalAlignment=HorizontalAlignment.Stretch };
+            var prompt=new TextBox {Header="补充提示词（可留空）",AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,MaxLength=6000,MinHeight=100,MaxHeight=180};
+            var providerInfo=Paragraph("");
+            var strengths=Enum.GetValues<RecognitionStrength>();
+            var defaultStrength=new ComboBox {Header="新分组默认强度",ItemsSource=strengths.Select(value=>value.ToString()).ToArray(),
+                SelectedIndex=Array.IndexOf(strengths,settings.DefaultStrength),HorizontalAlignment=HorizontalAlignment.Stretch};
+            var defaultSearch=new ToggleSwitch {Header="联网搜索（当前厂商默认）",OffContent="关闭",OnContent="开启"};
             var budget=new NumberBox { Header="每批生成请求上限",Minimum=1,Maximum=10000,Value=VM.State.Settings.BatchCallLimit,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact };
             var check=new Button { Content="读取账号可用模型（不生成内容）",HorizontalAlignment=HorizontalAlignment.Stretch };
             var reset=new Button { Content="开始新批次（重置调用计数）",HorizontalAlignment=HorizontalAlignment.Stretch };
-            var checkStatus=Paragraph("读取模型清单不发送照片、不生成内容。Gemini 使用图像与已有知识；grounded 启用 Google Search，实际来源以接口引用为准。模型可见不代表当前账号有足够额度。");
+            var checkStatus=Paragraph("读取模型清单不发送照片、不生成内容。请选支持图片输入的模型；清单不代表账号具备生成或联网权限。");
             var links=new StackPanel { Spacing=6 };
             var tokenPolicy=new ToggleSwitch { Header="识别提示策略",OffContent="兼容提示",OnContent="优化提示",IsOn=VM.State.Settings.OptimizeRecognitionTokens };
-            var advanced=new StackPanel { Spacing=8 };advanced.Children.Add(tokenPolicy);advanced.Children.Add(Paragraph("优化提示保留原有图片、视角和思考预算；可随时切回兼容提示。"));foreach(var element in new FrameworkElement[]{check,checkStatus}) advanced.Children.Add(element);
-            var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{key,model,search,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。复制框选图片不调用 API。"),reset,new Expander { Header="模型清单与提示设置",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
+            var advanced=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{check,checkStatus,tokenPolicy,prompt,Paragraph("可用中文或英文补充识别重点；程序仍要求返回车型 JSON，并在本机生成归档名称。")}) advanced.Children.Add(element);
+            var recognition=new StackPanel { Spacing=10 };foreach(var element in new FrameworkElement[]{providerBox,key,model,providerInfo,budget,Paragraph($"本批已调用 {VM.State.BatchCalls} 次。复制框选图片不调用 API。"),reset,new Expander { Header="模型清单与提示设置",Content=advanced,HorizontalAlignment=HorizontalAlignment.Stretch }}) recognition.Children.Add(element);
             var openLearning=new Button { Content="管理学习模式与规则" };var openGuide=new Button { Content="查看／更新车型指南" };
             var naming=new StackPanel { Spacing=8 };naming.Children.Add(Paragraph("全部在本机学习，不发送历史名称、规则或目录清单至 API。"));naming.Children.Add(openLearning);naming.Children.Add(openGuide);
             var openData=new Button { Content="打开本版本数据目录" };var importData=new Button { Content="导入旧版本数据…" };var clearCache=new Button { Content="清理可重建缓存" };var logs=new Button { Content="打开崩溃日志" };
@@ -47,26 +55,81 @@ public sealed partial class MainPage
             importData.Click+=async(_,_)=> { try { var source=await PickFolderAsync();if(source is null) return;maintenanceStatus.Text=File.Exists(Path.Combine(source,"cararchive.db"))?"已选择："+source+"\n当前版本已打开数据库，不会覆盖或合并。请解压一份新的便携包，启动时选择此目录导入。迁移前关闭本版本。":"该目录没有 cararchive.db，请选择旧版本 Data 或原本机数据目录。"; } catch(Exception error) { maintenanceStatus.Text=error.Message; } };
             clearCache.Click+=async(_,_)=> { clearCache.IsEnabled=false;try { maintenanceStatus.Text=await ClearRebuildableCacheAsync(); } catch(Exception error) { maintenanceStatus.Text=error.Message; } finally { clearCache.IsEnabled=true; } };
             using var checkCts=new CancellationTokenSource();
+            var refreshing=false;
+            var provider=Enum.IsDefined(settings.Provider)?settings.Provider:RecognitionProvider.Gemini;
+            var profile=settings.Profile(provider);
+            string CurrentModel()=>provider==RecognitionProvider.Gemini?settings.Model:profile.Model;
+            void RefreshProvider()
+            {
+                refreshing=true;
+                try
+                {
+                    profile=settings.Profile(provider);
+                    if(provider!=RecognitionProvider.Gemini) settings.ProviderProfiles[provider]=profile;
+                    key.Password=VM.Credentials.Read(provider);
+                    defaultSearch.IsOn=RecognitionPlan.IsOnline(settings);
+                    model.ItemsSource=ProviderCatalog.Models(provider).Append(CurrentModel()).Distinct().ToArray();
+                    model.SelectedItem=CurrentModel();model.Text=CurrentModel();
+                    prompt.Text=provider==RecognitionProvider.Gemini?settings.GeminiPrompt:profile.Prompt;
+                    tokenPolicy.Visibility=provider==RecognitionProvider.Gemini?Visibility.Visible:Visibility.Collapsed;
+                    providerInfo.Text=provider switch {
+                        RecognitionProvider.Gemini=>"使用 Google Search；搜索结果以实际引用为准。",
+                        RecognitionProvider.DeepSeek=>"图片识别请选择 deepseek-flash。在识别强度弹窗中开启 DeepSeek 搜索。",
+                        _=>$"在识别强度弹窗中开启 {provider} 搜索。"
+                    };
+                    checkStatus.Text="读取模型清单不发送照片，不生成内容。";
+                }
+                finally {refreshing=false;}
+            }
+            providerBox.SelectedIndex=Array.IndexOf(providers,provider);
+            RefreshProvider();
+            recognition.Children.Insert(3,defaultStrength);
+            recognition.Children.Insert(4,defaultSearch);
+            defaultStrength.SelectionChanged+=(_,_)=> {
+                if(defaultStrength.SelectedIndex<0)return;
+                settings.DefaultStrength=strengths[defaultStrength.SelectedIndex];VM.SaveHeader();UpdateModePresentation();
+            };
+            defaultSearch.Toggled+=(_,_)=> {
+                if(refreshing)return;
+                RecognitionPlan.SetOnline(settings,defaultSearch.IsOn);VM.SaveHeader();UpdateModePresentation();
+            };
+            providerBox.SelectionChanged+=(_,_)=> {
+                if(providerBox.SelectedIndex<0)return;
+                provider=providers[providerBox.SelectedIndex];settings.Provider=provider;
+                RefreshProvider();VM.SaveHeader();
+            };
             void SaveModel(string value)
             {
-                if(string.IsNullOrWhiteSpace(value) || value.Trim()==VM.State.Settings.Model)return;
-                VM.State.Settings.Model=value.Trim();VM.SaveHeader();UpdateModePresentation();
+                if(refreshing || string.IsNullOrWhiteSpace(value) || value.Trim()==CurrentModel())return;
+                if(provider==RecognitionProvider.Gemini)settings.Model=value.Trim();else profile.Model=value.Trim();
+                VM.SaveHeader();UpdateModePresentation();
             }
             void SaveBudget(string value)
             {
                 if(int.TryParse(value,out var amount) && amount is >=1 and <=10000 && amount!=VM.State.Settings.BatchCallLimit)
                 {VM.State.Settings.BatchCallLimit=amount;VM.SaveHeader();}
             }
-            var savedKey=key.Password;
-            key.PasswordChanged+=(_,_)=> {try {if(key.Password==savedKey)return;VM.Credentials.Save(key.Password);savedKey=key.Password;}catch(Exception error){checkStatus.Text=error.Message;}};
+            key.PasswordChanged+=(_,_)=> {if(refreshing)return;try {VM.Credentials.Save(provider,key.Password);}catch(Exception error){checkStatus.Text=error.Message;}};
             model.SelectionChanged+=(_,_)=> {if(model.SelectedItem is string value)SaveModel(value);};
             var modelWired=false;model.Loaded+=(_,_)=> {if(!modelWired && VisualChild<TextBox>(model) is { } input) {modelWired=true;input.TextChanged+=(_,_)=>SaveModel(input.Text);}};
             model.TextSubmitted+=(_,args)=>SaveModel(args.Text);
             budget.ValueChanged+=(_,args)=>SaveBudget(args.NewValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var budgetWired=false;budget.Loaded+=(_,_)=> {if(!budgetWired && VisualChild<TextBox>(budget) is { } input) {budgetWired=true;input.TextChanged+=(_,_)=>SaveBudget(input.Text);}};
             tokenPolicy.Toggled+=(_,_)=> {VM.State.Settings.OptimizeRecognitionTokens=tokenPolicy.IsOn;VM.SaveHeader();};
-            search.SelectionChanged+=(_,_)=> {VM.State.Settings.Search=search.SelectedIndex==1?SearchPreference.Grounded:SearchPreference.Gemini;VM.SaveHeader();};
-            check.Click+=async (_,_)=> {check.IsEnabled=false;try {using var client=new HttpClient{Timeout=TimeSpan.FromSeconds(30)};var current=model.Text;var available=await ModelCatalog.FetchAsync(client,key.Password,checkCts.Token);model.ItemsSource=ModelCatalog.BuiltIn.Concat(available).Append(current).Where(id=>!string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();model.Text=current;checkStatus.Text=$"已读取 {available.Count} 个模型；未发送照片，未生成内容。";}catch(Exception error){checkStatus.Text=error.Message;}finally{check.IsEnabled=true;} };
+            prompt.TextChanged+=(_,_)=> {if(refreshing)return;if(provider==RecognitionProvider.Gemini)settings.GeminiPrompt=prompt.Text;else profile.Prompt=prompt.Text;VM.SaveHeader();};
+            check.Click+=async (_,_)=> {
+                check.IsEnabled=false;var requestedProvider=provider;
+                try {
+                    using var client=new HttpClient{Timeout=TimeSpan.FromSeconds(30)};
+                    var available=await ProviderCatalog.FetchAsync(client,requestedProvider,key.Password,checkCts.Token);
+                    if(checkCts.IsCancellationRequested || requestedProvider!=provider)return;
+                    var current=CurrentModel();refreshing=true;
+                    try {model.ItemsSource=ProviderCatalog.Models(provider).Concat(available).Append(current).Distinct().ToArray();model.SelectedItem=current;model.Text=current;}
+                    finally {refreshing=false;}
+                    checkStatus.Text=$"已读取 {available.Count} 个模型；未发送照片，未生成内容。";
+                }catch(Exception error){if(!checkCts.IsCancellationRequested && requestedProvider==provider)checkStatus.Text=error.Message;}
+                finally{check.IsEnabled=true;}
+            };
             reset.Click+=(_,_)=> { VM.State.BatchCalls=0; VM.State.BatchId=Guid.NewGuid().ToString("N"); VM.Save(); checkStatus.Text="已开始新批次，调用计数归零。"; };
 
             dialog.Closing+=(_,_)=>checkCts.Cancel();

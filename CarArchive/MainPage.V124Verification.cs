@@ -27,7 +27,7 @@ public sealed partial class MainPage
    var width=RecognizeActionButton.ActualWidth;var x=RecognizeActionButton.TransformToVisual(this).TransformPoint(new()).X;
    Check(width>90&&width<135,"Recognition button uses compact measured width");Centered();
    Check(UiMotion.Enabled==new UISettings().AnimationsEnabled,"Motion honors Windows animation preference");
-   Check(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(RecognizeActionButton)=="Gemini识别","Recognition retains accessible name");
+   Check(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(RecognizeActionButton)=="AI识别","Recognition retains accessible name");
    await CaptureVisualAsync(this,Path.Combine(directory,"recognition-light.png"));
    var task=VM.RunGroupAsync(group,"联网识别",false,ct=>Task.Delay(Timeout.Infinite,ct));await Task.Delay(150);
    Check(RecognizeActionButton.Label=="取消识别"&&RecognizeActionButton.IsEnabled,"Same button exposes cancellation during recognition");
@@ -45,7 +45,7 @@ public sealed partial class MainPage
     await CaptureVisualAsync(this,Path.Combine(directory,"hover-"+theme+".png"));
    }
    RequestedTheme=ElementTheme.Light;ExecuteCommand("recognize",this,new());await task;await Task.Delay(140);
-   Check(!group.IsWorking&&RecognizeActionButton.Label=="Gemini识别","Cancellation restores normal recognition without API calls");
+   Check(!group.IsWorking&&RecognizeActionButton.Label=="AI识别","Cancellation restores normal recognition without API calls");
    UiMotion.Reveal(EditorPane);await Task.Delay(200);
    Check(Math.Abs(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(EditorPane).Opacity-1)<.01,"Reveal settles without changing layout");
    Check(VM.State.BatchCalls==0,"No real API calls");await VM.FlushWritesAsync();
