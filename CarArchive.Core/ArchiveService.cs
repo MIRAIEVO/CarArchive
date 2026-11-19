@@ -11,12 +11,19 @@ public sealed class ArchiveService(IStateStore store)
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 131072, true);
         return Convert.ToHexString(await SHA256.HashDataAsync(stream, ct));
     }
-    public async Task<ArchiveJob> PlanAsync(PhotoGroup group, string root, string brand, string folder, CancellationToken ct, WorkspaceState? state=null)
+    public async Task<ArchiveJob> PlanAsync(PhotoGroup group, string root, string brand, string folder, CancellationToken ct, WorkspaceState? state=null,
+        Func<ArchiveDuplicate,CancellationToken,Task<ArchiveDuplicateChoice>>? decide=null,
+        Func<IReadOnlyList<ArchiveDuplicate>,CancellationToken,Task>? recycle=null)
     {
         if (!Path.IsPathFullyQualified(root)) throw new ArgumentException("请先选择归档根目录。");
         var directory = Path.Combine(Path.GetFullPath(root), NamingService.SafeSegment(brand), NamingService.SafeSegment(folder));
         var job = new ArchiveJob { GroupId = group.Id };
         var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var bySize=Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory).Where(path=>!path.EndsWith(".partial",StringComparison.OrdinalIgnoreCase)).ToLookup(path=>new FileInfo(path).Length)
+            : Array.Empty<string>().ToLookup(_=>0L);
+        var hashes=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        var recycleItems=new List<ArchiveDuplicate>();
         foreach (var photo in group.Photos.Where(p => !p.Excluded).GroupBy(p=>p.AssetId.Length>0?p.AssetId:p.Id).Select(g=>g.First()))
         {
             ct.ThrowIfCancellationRequested();
@@ -24,17 +31,43 @@ public sealed class ArchiveService(IStateStore store)
             var source = Path.GetFullPath(photo.Path); var destination = Path.Combine(directory, Path.GetFileName(source));
             if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase)) throw new IOException("照片已经在该目录中，请检查目标目录。");
             var hash = await HashAsync(source, ct); var index = 2;
+            var recycleSource=false;
+            foreach(var candidate in bySize[new FileInfo(source).Length].Concat(job.Entries.Where(entry=>entry.Hash==hash).Select(entry=>entry.Source)))
+            {
+                if(string.Equals(source,candidate,StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("源文件已经在该目录中，未执行移动。");
+                if(!hashes.TryGetValue(candidate,out var candidateHash))
+                    hashes[candidate]=candidateHash=await HashAsync(candidate,ct);
+                if(candidateHash!=hash)continue;
+                var duplicate=new ArchiveDuplicate(source,candidate,hash);
+                var choice=decide is null
+                    ? throw new IOException($"发现相同内容：{candidate}。请从归档界面选择处理方式。")
+                    : await decide(duplicate,ct);
+                if(choice==ArchiveDuplicateChoice.Cancel)throw new OperationCanceledException(ct);
+                if(choice==ArchiveDuplicateChoice.Recycle){recycleItems.Add(duplicate);recycleSource=true;}
+                else if(choice!=ArchiveDuplicateChoice.Move)throw new InvalidOperationException("无效的重复文件处理方式。");
+                break;
+            }
+            if(recycleSource)continue;
             while (File.Exists(destination) || reserved.Contains(destination))
             {
-                if (File.Exists(destination) && await HashAsync(destination, ct) == hash)
-                    throw new IOException($"发现相同内容的照片：{destination}。未移动本组，请排除此照片或选择其他目录。");
                 destination = Path.Combine(directory, $"{Path.GetFileNameWithoutExtension(source)} ({index++}){Path.GetExtension(source)}");
             }
             reserved.Add(destination);
             var retain=photo.AssetId.Length>0 && state?.Groups.Any(g=>g.Id!=group.Id && !g.Archived && g.Photos.Any(p=>p.AssetId==photo.AssetId && !p.Excluded))==true;
             job.Entries.Add(new() { PhotoId = photo.Id,AssetId=photo.AssetId,RetainSource=retain, Source = source, Destination = destination, Temp = destination + "." + job.Id + ".partial", Hash = hash });
         }
-        if (job.Entries.Count == 0) throw new InvalidOperationException("本组没有可归档的照片。");
+        ct.ThrowIfCancellationRequested();
+        if(recycleItems.Count>0)
+        {
+            if(recycle is null)throw new InvalidOperationException("无法回收重复文件，源文件未改动。");
+            await recycle(recycleItems,ct);
+        }
+        if (job.Entries.Count == 0)
+        {
+            if(recycleItems.Count>0)return job;
+            throw new InvalidOperationException("本组没有可归档的照片。");
+        }
         store.SaveJob(job); return job;
     }
     public async Task<ArchiveJob> ExecuteAsync(ArchiveJob job, CancellationToken ct)

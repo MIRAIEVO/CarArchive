@@ -34,7 +34,8 @@ public static class NamingGuideEngine
         var exact=entries.Where(e=>NamingText.ModelKey(e.Model)==compactModel || e.Aliases.Any(alias=>NamingText.ModelKey(NamingText.StripBrand(alias,car.Brand))==compactModel)).ToList();
         if(years.Length==0)
         {
-            var ranges=exact.Where(e=>e.ProductionYears.Length>0 && (generation.Length>0 && e.Generation==generation || code.Length>0 && (NamingText.Key(e.Code)==NamingText.Key(code) || NamingText.Key(e.RawCode)==NamingText.Key(code))))
+            var ranges=exact.Where(e=>e.ProductionYears.Length>0 && NamingText.Phase(e.Phase)==NamingText.Phase(car.Phase)
+                && (generation.Length>0 && e.Generation==generation || code.Length>0 && (NamingText.Key(e.Code)==NamingText.Key(code) || NamingText.Key(e.RawCode)==NamingText.Key(code))))
                 .Select(e=>e.ProductionYears).Distinct().ToList();
             if(ranges.Count==1) years=ranges[0];
         }

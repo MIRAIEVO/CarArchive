@@ -127,12 +127,21 @@ public sealed partial class MainViewModel
         using var linked=CancellationTokenSource.CreateLinkedTokenSource(ct,shutdown.Token);
         await Tasks.RunManyAsync(selection.Keys.ToList(),"删除并移入回收站",true,async token=>
         {
-            foreach(var pair in selection)
-            {
-                var before=JsonSerializer.Serialize(pair.Key,StateStore.Json);
+            foreach(var pair in selection) await RecycleInFileSlotAsync(pair.Key,pair.Value,token);
+        },PhotoTaskChanged,linked.Token);
+    }
+    private async Task RecycleInFileSlotAsync(PhotoGroup group,IReadOnlyList<Photo> photos,CancellationToken token,IReadOnlyList<ArchiveDuplicate>? duplicates=null)
+    {
+                var before=JsonSerializer.Serialize(group,StateStore.Json);
                 var snapshot=new WorkspaceState { Groups=Groups.Select(g=>new PhotoGroup { Id=g.Id,Photos=new(g.Photos.Select(p=>p.Snapshot())) }).ToList() };
-                await FlushWritesAsync();var operation=await Task.Run(()=>PhotoLifecycle.PlanRecycleAsync(pair.Key,pair.Value,snapshot,token),token);
-                var record=new EditRecord {Recycle=true,PhotoOperationId=operation.Id,Kind="Recycle",Before=new(){[pair.Key.Id]=before},Positions=new(){[pair.Key.Id]=Groups.IndexOf(pair.Key)},Phase="Recycling"};
+                if(duplicates is not null) await Task.Run(async()=>{
+                    foreach(var duplicate in duplicates)
+                        if(await ArchiveService.HashAsync(duplicate.Existing,token)!=duplicate.Hash || await ArchiveService.HashAsync(duplicate.Source,token)!=duplicate.Hash)
+                            throw new IOException("重复文件已变化，未回收任何文件。");
+                },token);
+                var expected=duplicates?.ToDictionary(item=>item.Source,item=>item.Hash,StringComparer.OrdinalIgnoreCase);
+                await FlushWritesAsync();var operation=await Task.Run(()=>PhotoLifecycle.PlanRecycleAsync(group,photos,snapshot,token,expected),token);
+                var record=new EditRecord {Recycle=true,PhotoOperationId=operation.Id,Kind="Recycle",Before=new(){[group.Id]=before},Positions=new(){[group.Id]=Groups.IndexOf(group)},Phase="Recycling"};
                 foreach(var entry in operation.Entries)
                 {
                     var backup=Path.Combine(DataDirectory,"undo",record.Id,entry.NewAssetId,Path.GetFileName(entry.Source));
@@ -140,9 +149,7 @@ public sealed partial class MainViewModel
                     record.Backups[entry.Source]=backup;record.Hashes[entry.Source]=entry.Hash;
                 }
                 History.Add(record);SaveHistory();
-                await ExecuteRecycleWithHistoryAsync(pair.Key,operation,token);
-            }
-        },PhotoTaskChanged,linked.Token);
+                await ExecuteRecycleWithHistoryAsync(group,operation,token);
     }
     private async Task ExecuteRecycleWithHistoryAsync(PhotoGroup group,PhotoFileOperation operation,CancellationToken ct)
     {

@@ -174,6 +174,7 @@ public sealed partial class MainPage
         var root = VM.State.Settings.ArchiveRoot;
         var brand = TargetBrandEdit.Text.Trim();
         var name = FolderEdit.Text.Trim();
+        OpenBrandButton.IsEnabled=BrandDirectoryPath() is not null;
         var text = "";
         try
         {
@@ -189,5 +190,26 @@ public sealed partial class MainPage
         }
         TargetPathText.Text = text;
         ToolTipService.SetToolTip(TargetPathText, text);
+    }
+    private string? BrandDirectoryPath()
+    {
+        var root=VM.State.Settings.ArchiveRoot;
+        if(!Path.IsPathFullyQualified(root))return null;
+        try
+        {
+            var path=Path.Combine(root,NamingService.SafeSegment(TargetBrandEdit.Text));
+            return Directory.Exists(path)?path:null;
+        }
+        catch(ArgumentException){return null;}
+    }
+    private async void OpenBrand_Click(object sender,RoutedEventArgs e)
+    {
+        var directory=BrandDirectoryPath();
+        if(directory is null){VM.Status="品牌目录不存在，请检查归档根目录与品牌。";return;}
+        try
+        {
+            if(!await Windows.System.Launcher.LaunchFolderPathAsync(directory))VM.Status="无法打开品牌目录。";
+        }
+        catch(Exception error){VM.Status=error.Message;}
     }
 }

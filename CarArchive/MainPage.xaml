@@ -124,11 +124,11 @@
        <StackPanel Spacing="8">
         <Grid ColumnSpacing="8" RowSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
          <TextBox x:Name="BrandEdit" Header="品牌" TextChanged="Editor_Changed"/><TextBox x:Name="SeriesEdit" Grid.Column="1" Header="车系" TextChanged="Editor_Changed"/>
-         <TextBox x:Name="VariantEdit" Grid.Row="1" Header="完整型号" TextChanged="Editor_Changed"/><TextBox x:Name="BodyEdit" Grid.Row="1" Grid.Column="1" Header="车身形式（仅展示）" TextChanged="Editor_Changed"/>
+         <TextBox x:Name="VariantEdit" Grid.Row="1" Header="完整型号" TextChanged="Editor_Changed"/><TextBox x:Name="BodyEdit" Grid.Row="1" Grid.Column="1" Header="车身形式" TextChanged="Editor_Changed"/>
          <TextBox x:Name="GenerationEdit" Grid.Row="2" Header="第几代" TextChanged="Editor_Changed"/><TextBox x:Name="CodeEdit" Grid.Row="2" Grid.Column="1" Header="代号" TextChanged="Editor_Changed"/>
          <TextBox x:Name="PhaseEdit" Grid.Row="3" Header="改款阶段" TextChanged="Editor_Changed"/><TextBox x:Name="PackageEdit" Grid.Row="3" Grid.Column="1" Header="套件 / 特别版本" TextChanged="Editor_Changed"/>
-         <TextBox x:Name="OfficialNameEdit" Grid.Row="4" Grid.ColumnSpan="2" Header="官方完整营销名称（车身形式依据）" TextChanged="Editor_Changed"/>
-         <TextBox x:Name="YearsEdit" Grid.Row="5" Grid.ColumnSpan="2" Header="该代生产年份范围（老车型命名依据）" PlaceholderText="YYYY-YYYY；未知留空" TextChanged="Editor_Changed"/>
+         <TextBox x:Name="OfficialNameEdit" Grid.Row="4" Grid.ColumnSpan="2" Header="官方完整营销名称" TextChanged="Editor_Changed"/>
+         <TextBox x:Name="YearsEdit" Grid.Row="5" Grid.ColumnSpan="2" Header="生产年份" PlaceholderText="对应改款阶段：YYYY-YYYY；未知留空" TextChanged="Editor_Changed"/>
         </Grid>
         <StackPanel Orientation="Horizontal" Spacing="6"><Button Content="重新生成名称" Click="Generate_Click"/><Button x:Name="RestoreFolderNameButton" Content="撤回名称" Click="RestoreName_Click"/></StackPanel>
        </StackPanel>
@@ -162,10 +162,15 @@
        <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><AutoSuggestBox x:Name="TargetBrandEdit" Header="品牌目录" TextMemberPath="BrandDirectory" UpdateTextOnSelect="False" MaxSuggestionListHeight="240" TextChanged="Brand_Changed" QuerySubmitted="Brand_QuerySubmitted" LostFocus="TargetBrand_LostFocus"><AutoSuggestBox.ItemTemplate><DataTemplate x:DataType="core:CategorySuggestion"><TextBlock Text="{x:Bind BrandDirectory}" Padding="0,5"/></DataTemplate></AutoSuggestBox.ItemTemplate></AutoSuggestBox><ComboBox x:Name="ExistingBox" Grid.Column="1" Header="已有车型目录" HorizontalAlignment="Stretch" SelectionChanged="Existing_Changed"/></Grid>
        <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="RootText" Text="请选择归档根目录" FontSize="10" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind VM.State.Settings.ArchiveRoot,Mode=OneWay}"/><Button Grid.Column="1" Content="目录…" Click="ChooseRoot_Click"/></Grid>
        <TextBlock x:Name="RuleText" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-       <TextBlock x:Name="TargetPathText" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </StackPanel>
        </ScrollViewer>
-       <Grid Grid.Row="1" ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><Button IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}" Content="记住名称" Click="Learn_Click"/><Button x:Name="ArchiveActionButton" IsEnabled="{x:Bind VM.SelectedCanArchiveAction,Mode=OneWay}" Grid.Column="1" Content="确认并移动" Click="Archive_Click" Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Ctrl + Enter"/></Grid>
+       <StackPanel Grid.Row="1" Spacing="5">
+        <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+         <TextBlock x:Name="TargetPathText" FontSize="10" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+         <Button x:Name="OpenBrandButton" Grid.Column="1" Content="打开品牌目录" Click="OpenBrand_Click" IsEnabled="False"/>
+        </Grid>
+        <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><Button IsEnabled="{x:Bind VM.SelectedEditable,Mode=OneWay}" Content="记住名称" Click="Learn_Click"/><Button x:Name="ArchiveActionButton" IsEnabled="{x:Bind VM.SelectedCanArchiveAction,Mode=OneWay}" Grid.Column="1" Content="确认并移动" Click="Archive_Click" Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Ctrl + Enter"/></Grid>
+       </StackPanel>
       </Grid>
      </ContentControl>
     </Border>

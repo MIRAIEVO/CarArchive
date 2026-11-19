@@ -244,6 +244,24 @@ Test("Requests include real search tool, image data, revision and no stored inte
 });
 PhotoLifecycleTests.Register(Test);
 V2Tests.Register(Test);
+Test("Archive detects renamed duplicates, supports recycle selection, and never alters existing copies",async ()=>{
+    var area=Area();var root=Path.Combine(area,"library");var target=Path.Combine(root,"Audi","A4");Directory.CreateDirectory(target);
+    var existing=await Source(target,"existing.mp4","same-video-content");
+    var original=await Source(area,"different-name.mp4","same-video-content");
+    var store=new StateStore(Path.Combine(area,"db"));var service=new ArchiveService(store);
+    var group=Group(original);var calls=0;
+    await Throws<OperationCanceledException>(()=>service.PlanAsync(group,root,"Audi","A4",default,
+        decide:(item,_)=>{Assert(item.Existing==existing);return Task.FromResult(ArchiveDuplicateChoice.Cancel);}));
+    Assert(File.Exists(original) && store.Jobs().Count==0);
+    var recycled=await service.PlanAsync(group,root,"Audi","A4",default,decide:(_,_)=>Task.FromResult(ArchiveDuplicateChoice.Recycle),
+        recycle:(items,_)=>{Assert(items.Single().Source==original && items.Single().Existing==existing);calls++;return Task.CompletedTask;});
+    Assert(calls==1 && recycled.Entries.Count==0 && store.Jobs().Count==0);
+    await Source(target,"different-name.mp4","unrelated-content");
+    var move=await service.PlanAsync(group,root,"Audi","A4",default,decide:(_,_)=>Task.FromResult(ArchiveDuplicateChoice.Move));
+    Assert(Path.GetFileName(move.Entries.Single().Destination)=="different-name (2).mp4");
+    await service.ExecuteAsync(move,default);
+    Assert(!File.Exists(original) && await File.ReadAllTextAsync(existing)=="same-video-content");
+});
 ProviderTests.Register(Test);
 RecognitionStrengthTests.Register(Test);
 NamingTests.Register(Test);

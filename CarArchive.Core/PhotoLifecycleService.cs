@@ -97,7 +97,7 @@ public sealed class PhotoLifecycleService(IPhotoOperationStore store,string mana
         }
         operation.Status="Canceled";store.SavePhotoOperation(operation);
     }
-    public async Task<PhotoFileOperation> PlanRecycleAsync(PhotoGroup group,IReadOnlyList<Photo> photos,WorkspaceState snapshot,CancellationToken ct)
+    public async Task<PhotoFileOperation> PlanRecycleAsync(PhotoGroup group,IReadOnlyList<Photo> photos,WorkspaceState snapshot,CancellationToken ct,IReadOnlyDictionary<string,string>? expectedHashes=null)
     {
         if(group.Archived || group.FilesPending) throw new InvalidOperationException("仅可回收已完成独立副本准备的待处理组照片。");
         var chosen=photos.Select(p=>p.Id).ToHashSet();if(chosen.Count==0 || photos.Any(p=>!group.Photos.Contains(p))) throw new InvalidOperationException("请重新选择本组照片。");
@@ -108,7 +108,10 @@ public sealed class PhotoLifecycleService(IPhotoOperationStore store,string mana
             if(snapshot.Groups.Any(g=>g.Id!=group.Id && g.Photos.Any(p=>Path.GetFullPath(p.Path).Equals(path,StringComparison.OrdinalIgnoreCase)))) throw new IOException("此原图仍被其他组引用，请先完成独立副本迁移。");
             if(group.Photos.Any(p=>!chosen.Contains(p.Id) && Path.GetFullPath(p.Path).Equals(path,StringComparison.OrdinalIgnoreCase))) throw new IOException("本组还有未选中的照片引用，请一并选择后再回收。");
             var info=ValidateSource(path);var entry=new PhotoFileEntry { Source=path,SourceAssetId=set.First().AssetId,PhotoIds=set.Select(p=>p.Id).ToList(),Length=info.Length,ModifiedTicks=info.LastWriteTimeUtc.Ticks,CreatedTicks=info.CreationTimeUtc.Ticks };
-            entry.Hash=await ArchiveService.HashAsync(path,ct);ValidateUnchanged(entry);operation.Entries.Add(entry);
+            entry.Hash=await ArchiveService.HashAsync(path,ct);ValidateUnchanged(entry);
+            if(expectedHashes is not null && (!expectedHashes.TryGetValue(path,out var expected) || expected!=entry.Hash))
+                throw new IOException("待回收文件自确认后发生变化，未回收。");
+            operation.Entries.Add(entry);
         }
         store.SavePhotoOperation(operation);return operation;
     }

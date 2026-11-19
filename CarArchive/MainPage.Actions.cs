@@ -56,6 +56,8 @@ public sealed partial class MainPage
         var visualIndex=Array.IndexOf(args,"--verify-visual");
         var strengthIndex=Array.IndexOf(args,"--verify-strength13");
         if(strengthIndex>=0 && strengthIndex+1<args.Length) _=VerifyStrength13Async(args[strengthIndex+1]);
+        var archiveIndex=Array.IndexOf(args,"--verify-archive132");
+        if(archiveIndex>=0 && archiveIndex+1<args.Length) _=VerifyArchive132Async(args[archiveIndex+1]);
         if(visualIndex>=0 && visualIndex+1<args.Length) _=RunVisualVerificationAsync(args[visualIndex+1]);
         var groundingIndex=Array.IndexOf(args,"--verify-grounding");
         if(groundingIndex>=0 && groundingIndex+1<args.Length) _=RunGroundingDiagnosticAsync(args[groundingIndex+1]);
@@ -395,14 +397,25 @@ public sealed partial class MainPage
         {
             var group=RequireGroup();if(group.Archived) {await UndoSelectedMoveAsync(group);return;}if(!group.Editable) throw new InvalidOperationException("本组正在执行任务或已归档。"); NamingService.SafeSegment(group.FolderName); NamingService.SafeSegment(group.TargetBrand);
             if(VM.State.Settings.ArchiveRoot.Length==0) throw new InvalidOperationException("请先选择归档根目录。");
-            var root=VM.State.Settings.ArchiveRoot;var target=Path.Combine(root,group.TargetBrand,group.FolderName);
+            var root=VM.State.Settings.ArchiveRoot;var brand=group.TargetBrand;var folder=group.FolderName;
 
-            await VM.RunGroupAsync(group,"归档",true,ct=>VM.ArchiveAsync(group,ct,root));
+            await VM.RunGroupAsync(group,"归档",true,ct=>VM.ArchiveAsync(group,ct,root,brand,folder,ConfirmArchiveDuplicateAsync));
             if(group.Archived) { var rules=VM.Learn(group,false);if(VM.Selected==group) await ConsiderRuleAsync(rules);await VM.EnsureNamingGuideAsync(true); _=RefreshCategoryCatalogAsync(); }
         }
         catch(Exception error) { VM.Status=error.Message; Notice.Severity=InfoBarSeverity.Warning; }
     }
     private void Undo_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("undoArchive",sender,e);
+    private async Task<ArchiveDuplicateChoice> ConfirmArchiveDuplicateAsync(ArchiveDuplicate duplicate,CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        while(ModalOpen())await Task.Delay(150,ct);
+        var result=await DialogAsync("发现相同内容",Paragraph(
+            $"待移动：{duplicate.Source}\n\n相同文件：{duplicate.Existing}\n\n仍移动会保留两份；如重名，自动加序号。回收只处理待移动文件。"),
+            "仍移动","回收待移动文件","取消本组");
+        ct.ThrowIfCancellationRequested();
+        return result switch {ContentDialogResult.Primary=>ArchiveDuplicateChoice.Move,
+            ContentDialogResult.Secondary=>ArchiveDuplicateChoice.Recycle,_=>ArchiveDuplicateChoice.Cancel};
+    }
     private async Task UndoCoreAsync()
     {
         try { FlushEditor();var job=VM.Store.Jobs().Where(j=>j.Direction=="Archive" && j.Status=="Completed" && VM.Groups.Any(g=>g.Id==j.GroupId)).OrderByDescending(j=>j.CreatedAt).FirstOrDefault() ?? throw new InvalidOperationException("没有可撤销的归档。");var group=VM.Groups.First(g=>g.Id==job.GroupId);await VM.RunGroupAsync(group,"撤销",true,ct=>VM.ResumeOrUndoAsync(job,true,ct)); }

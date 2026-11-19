@@ -170,7 +170,7 @@ public sealed partial class MainViewModel : Observable
         if(kind=="联网识别") {group.PendingUploadPhotos=UploadSelection.Select(group,State.Settings.UploadMultiple);group.UploadingPhotoIds=group.PendingUploadPhotos.Select(p=>p.Id).ToHashSet();}
         MarkTouched(group);
         CrashJournal.Trace("Task.Start."+kind,group.Id);
-        try { await Tasks.RunAsync(group,kind,fileOperation,action,()=> { SaveGroup(group);GroupUpdated?.Invoke(group); },shutdown.Token); }
+        try { await Tasks.RunAsync(group,kind,fileOperation,action,()=> { if(Groups.Contains(group)){SaveGroup(group);GroupUpdated?.Invoke(group);} },shutdown.Token); }
         finally { group.PendingUploadPhotos=null;group.UploadingPhotoIds.Clear();CrashJournal.Trace("Task.End."+group.TaskState,group.Id); }
     }
     public AppSettings CaptureSettings()=>JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(State.Settings,StateStore.Json),StateStore.Json)!;
@@ -273,7 +273,8 @@ public sealed partial class MainViewModel : Observable
         if(group.Confirmed.Brand.Length>0 && group.TargetBrand.Length>0 && NamingService.SameBrand(group.Confirmed.Brand,group.TargetBrand)) State.BrandFolders[group.Confirmed.Brand]=NamingService.SafeSegment(group.TargetBrand);
         var pending=LocalNamingLearning.RecordConfirmed(group,State,explicitly);SaveHeader();return pending;
     }
-    public async Task ArchiveAsync(PhotoGroup group,CancellationToken ct,string? capturedRoot=null,string? capturedBrand=null,string? capturedFolder=null)
+    public async Task ArchiveAsync(PhotoGroup group,CancellationToken ct,string? capturedRoot=null,string? capturedBrand=null,string? capturedFolder=null,
+        Func<ArchiveDuplicate,CancellationToken,Task<ArchiveDuplicateChoice>>? decide=null)
     {
         if(group.Archived) throw new InvalidOperationException("本组已经归档。");
         if(group.FilesPending || Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (o.GroupId==group.Id || o.SourceGroupId==group.Id))) throw new InvalidOperationException("本组照片操作尚未完成，请先恢复后再归档。");
@@ -283,11 +284,30 @@ public sealed partial class MainViewModel : Observable
         var snapshot=new PhotoGroup { Id=group.Id,Photos=new(group.Photos.Select(p=>p.Snapshot())) };
         var references=new WorkspaceState { Groups=Groups.Select(g=>new PhotoGroup { Id=g.Id,Archived=g.Archived,Photos=new(g.Photos.Select(p=>new Photo { AssetId=p.AssetId,Excluded=p.Excluded })) }).ToList() };
         await FlushWritesAsync();
+        var ui=SynchronizationContext.Current;
+        Task<T> OnUi<T>(Func<Task<T>> action)
+        {
+            if(ui is null)return action();
+            var done=new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ui.Post(async _=>{try{done.SetResult(await action());}catch(OperationCanceledException){done.SetCanceled();}catch(Exception error){done.SetException(error);}},null);
+            return done.Task;
+        }
         try {
-            await Task.Run(async ()=> { var job=await Archive.PlanAsync(snapshot,root,brand,folder,ct,references);await Archive.ExecuteAsync(job,ct); },ct);
+            var job=await Task.Run(()=>Archive.PlanAsync(snapshot,root,brand,folder,ct,references,
+                decide is null?null:(item,token)=>OnUi(()=>decide(item,token)),
+                (items,token)=>OnUi(async()=>{
+                    var paths=items.Select(item=>item.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var photos=group.Photos.Where(p=>paths.Contains(Path.GetFullPath(p.Path))).ToList();
+                    await RecycleInFileSlotAsync(group,photos,token,items);return true;
+                })),ct);
+            if(job.Entries.Count==0)return;
+            await Task.Run(()=>Archive.ExecuteAsync(job,ct),ct);
         } finally {
-            var jobs=await Task.Run(Store.Jobs);
-            ArchiveService.Reconcile(new WorkspaceState { Groups=[group] },jobs);SaveGroup(group);
+            if(Groups.Contains(group))
+            {
+                var jobs=await Task.Run(Store.Jobs);
+                ArchiveService.Reconcile(new WorkspaceState { Groups=[group] },jobs);SaveGroup(group);
+            }
         }
         if(Selected==group && selectionRevision==selectedRevision)
         {
