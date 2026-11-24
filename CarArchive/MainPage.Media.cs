@@ -32,9 +32,19 @@ public sealed partial class MainPage
     private bool originalPreviewLoading;
     private async void PreviewZoom_Changed(object sender,ScrollViewerViewChangedEventArgs e)
     {
-        if(e.IsIntermediate || PreviewZoom.ZoomFactor<=1 || currentPhoto is not { } photo || PhotoService.IsVideo(photo) || originalPreviewId==photo.Id || originalPreviewLoading) return;
+        if(e.IsIntermediate || !PreviewHost.IsHitTestVisible || PreviewZoom.ZoomFactor<=1 || currentPhoto is not { } photo || PhotoService.IsVideo(photo) || originalPreviewId==photo.Id || originalPreviewLoading) return;
         originalPreviewLoading=true;
-        try { var id=photo.Id;var file=await StorageFile.GetFileFromPathAsync(photo.Path);using var stream=await file.OpenReadAsync();var image=new BitmapImage();await image.SetSourceAsync(stream);if(currentPhoto?.Id==id) {MainImage.Source=image;originalPreviewId=id;DrawSavedCrop();} }
-        catch(System.Exception error) { VM.Status="原图缩放不可用："+error.Message; }finally{originalPreviewLoading=false;}
+        var version=previewVersion;var token=previewCancellation?.Token??default;
+        try
+        {
+            var file=await StorageFile.GetFileFromPathAsync(photo.Path);using var stream=await file.OpenReadAsync();
+            token.ThrowIfCancellationRequested();var image=new BitmapImage();await image.SetSourceAsync(stream).AsTask(token);
+            while(drawing && version==previewVersion)await Task.Delay(16,token);
+            if(version==previewVersion && currentPhoto?.Id==photo.Id && PreviewZoom.ZoomFactor>1)
+            {MainImage.Source=image;originalPreviewId=photo.Id;DrawSavedCrop();}
+        }
+        catch(OperationCanceledException) { }
+        catch(System.Exception error) { CrashJournal.Fault("Preview.ZoomDecode",error);if(version==previewVersion)VM.Status="原图缩放不可用："+error.Message; }
+        finally{originalPreviewLoading=false;}
     }
 }

@@ -44,7 +44,7 @@ if(args is ["refresh-shipped",var archiveRoot,var sourceData,var resources]) {
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名输入推演.csv"),Csv(probes),true);
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名差异与待复核.csv"),Csv(review),true);
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名学习覆盖.json"),JsonSerializer.Serialize(new{
-    Version="1.3.1",Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Folders=actual,FamilyProfiles=portable.Profiles.Count,
+    Version="1.3.3",Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Folders=actual,FamilyProfiles=portable.Profiles.Count,
     SupplementFiles=noteCount,Probes=probes.Count-1,ExactProbeMatches=probes.Count-review.Count,DifferencesForReview=review.Count-1,
     IdentityMatched=portable.Inventory.Count(e=>e.HasIdentity),
     Scope="Local names and supplements; historic manufacturer evidence tables retained without claiming fresh verification."

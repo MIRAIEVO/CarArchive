@@ -193,8 +193,11 @@ public sealed class NamingRule
     public string Description => $"{(Enabled ? "启用" : "停用")} · {(Brand.Length == 0 ? "所有品牌" : Brand)} · {From} → {To}";
 }
 public sealed record LearnedName(string IdentityKey, string Brand, string FolderName);
+public enum AppearanceMode { System, Light, Dark }
+
 public sealed class AppSettings
 {
+    public AppearanceMode Appearance { get; set; }
     public RecognitionStrength DefaultStrength { get; set; } = RecognitionStrength.Minimal;
     public RecognitionStrength? Strength { get; set; }
     public RecognitionProvider Provider { get; set; }

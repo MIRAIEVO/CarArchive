@@ -43,8 +43,15 @@ public sealed partial class MainPage
             var maintenance=new StackPanel { Spacing=8 };foreach(var element in new FrameworkElement[]{Paragraph(ViewModels.MainViewModel.DataDirectory),openData,importData,clearCache,logs,openTrash,maintenanceStatus}) maintenance.Children.Add(element);
             var clearNames=new Button {Content="删除现有记住命名数据"};naming.Children.Add(clearNames);
             var clearCrashes=new Button {Content="删除崩溃日志"};maintenance.Children.Add(clearCrashes);
-            var settingsPages=BuildSettingsNavigation(recognition,naming,maintenance,BuildInteractionSettingsPanel(),BuildConfirmationSettingsPanel());
+            var appearance=new ComboBox {Header="界面主题",ItemsSource=new[]{"跟随系统","浅色","深色"},
+                SelectedIndex=(int)settings.Appearance,HorizontalAlignment=HorizontalAlignment.Stretch};
+            var settingsPages=BuildSettingsNavigation(recognition,naming,maintenance,BuildInteractionSettingsPanel(),BuildConfirmationSettingsPanel(),appearance);
             var dialog=new ContentDialog { XamlRoot=XamlRoot,Title="设置",RequestedTheme=RequestedTheme,Content=settingsPages,CloseButtonText="确定",DefaultButton=ContentDialogButton.Close };
+            appearance.SelectionChanged+=(_,_)=>{
+                if(appearance.SelectedIndex<0)return;
+                settings.Appearance=(AppearanceMode)appearance.SelectedIndex;
+                ApplyAppearance();dialog.RequestedTheme=RequestedTheme;VM.SaveHeader();
+            };
             Action? afterClose=null;
             clearNames.Click+=(_,_)=> {afterClose=()=>ClearRememberedNames_Click(sender,e);dialog.Hide();};
             clearCrashes.Click+=(_,_)=> {afterClose=()=>ClearCrashLogs_Click(sender,e);dialog.Hide();};

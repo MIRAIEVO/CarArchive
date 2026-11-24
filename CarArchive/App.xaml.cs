@@ -14,7 +14,7 @@ public partial class App : Application
     {
         UnhandledException+=(_,e)=>CrashJournal.Current?.Capture("WinUI",e.Exception);
         AppDomain.CurrentDomain.UnhandledException+=(_,e)=> { if(e.ExceptionObject is Exception error) CrashJournal.Current?.Capture("AppDomain",error); };
-        TaskScheduler.UnobservedTaskException+=(_,e)=>CrashJournal.Trace("Task.Unobserved."+e.Exception.GetType().Name);
+        TaskScheduler.UnobservedTaskException+=(_,e)=>CrashJournal.Fault("Task.Unobserved",e.Exception.GetBaseException());
         InitializeComponent();
     }
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -23,7 +23,7 @@ public partial class App : Application
         // Test harnesses always provide a fresh explicit data directory and never show migration UI.
         if(Environment.GetEnvironmentVariable("CARARCHIVE_DATA_DIR") is { Length:>0 } || File.Exists(Path.Combine(data,"cararchive.db")) || File.Exists(Path.Combine(data,"workspace-id.txt")))
         {
-            try { StartWorkspace(data); }catch(Exception error) { ShowStartup(error.Message); }
+            try { StartWorkspace(data); }catch(Exception error) { CrashJournal.Current?.Capture("Startup",error);ShowStartup(error.Message); }
             return;
         }
         ShowStartup(null);

@@ -30,8 +30,9 @@ public sealed partial class MainPage
 
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        CrashJournal.Trace("Page.Loaded");CrashJournal.Current?.Flush();
         if (initialized) return; initialized = true;
+        ApplyAppearance();StartCrashHeartbeat();
+        CrashJournal.Trace("Page.Loaded");CrashJournal.Current?.Flush();
         App.MainWindow!.FitToDisplay(XamlRoot.RasterizationScale);
         InteractionSettings.Normalize(VM.State.Settings);
         UpdateModePresentation();
@@ -50,6 +51,8 @@ public sealed partial class MainPage
         VM.PropertyChanged+=(_,args)=> { if(args.PropertyName==nameof(VM.Selected)) DispatcherQueue.TryEnqueue(()=> { if(!rendering && displayed!=VM.Selected) { FlushEditor();RenderSelection(); } }); };
 #if DEBUG
         var args=Environment.GetCommandLineArgs(); var verifyIndex=Array.IndexOf(args,"--verify");
+        var appearanceIndex=Array.IndexOf(args,"--verify-appearance133");
+        if(appearanceIndex>=0 && appearanceIndex+1<args.Length)_=VerifyAppearance133Async(args[appearanceIndex+1]);
         if(verifyIndex>=0 && verifyIndex+1<args.Length) _=RunVerificationAsync(args[verifyIndex+1]);
         var categoryVerifyIndex=Array.IndexOf(args,"--verify-categories");
         if(categoryVerifyIndex>=0 && categoryVerifyIndex+1<args.Length) _=RunCategoryVerificationAsync(args[categoryVerifyIndex+1]);
@@ -143,8 +146,8 @@ public sealed partial class MainPage
             ResearchText.Text = result?.Research ?? ""; QueriesText.Text = result is null ? "" : "实际搜索词：\n"+string.Join("\n",result.Queries);
             SourceList.ItemsSource = result?.Sources;
             UsageText.Text = result is null ? "" : $"{result.Model}\n输入 {RecognitionUsage(result,"total_input_tokens")} / 输出 {RecognitionUsage(result,"total_output_tokens")} / 思考 {result.ThinkingTokens?.ToString()??"未知"} tokens\n实际搜索 {result.SearchCount?.ToString()??"未知"} 次 · {result.ActualSearch}\n{result.CreatedAt:yyyy-MM-dd HH:mm}{RecognitionRoundDetails(result)}";
+            if(displayed!=previousGroup || result?.SearchSuggestionsHtml.Length is null or 0)SearchWidgetExpander.IsExpanded=false;
             SearchWidgetExpander.Visibility = result?.SearchSuggestionsHtml.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-            if (result?.SearchSuggestionsHtml.Length > 0) _ = ShowWidgetAsync(result.SearchSuggestionsHtml);
             RenderVerification();
             UpdateExistingCategories();
             UpdateTargetPath();
@@ -154,11 +157,19 @@ public sealed partial class MainPage
         if(displayed!=previousGroup) {FocusCurrentGroup();_ = FadeThumbnailsAsync(displayed,thumbnailTransitionVersion);}
         _ = ShowPhotoAsync(currentPhoto);
     }
+    private async void SearchWidget_Expanded(Expander sender,ExpanderExpandingEventArgs args)
+    {
+        await Task.Yield();
+        if(displayed?.Suggestion is {SearchSuggestionsHtml.Length:>0} result)await ShowWidgetAsync(result.SearchSuggestionsHtml);
+    }
     private async Task ShowWidgetAsync(string html)
     {
+        var owner=displayed;
         try
         {
+            CrashJournal.Trace("SearchWidget.Initialize",owner?.Id);
             await SearchWidget.EnsureCoreWebView2Async();
+            if(categoryClosed || owner!=displayed || !SearchWidgetExpander.IsExpanded)return;
             if (!widgetReady)
             {
                 widgetReady = true; SearchWidget.CoreWebView2.Settings.IsScriptEnabled = false;
@@ -167,12 +178,13 @@ public sealed partial class MainPage
                 {
                     if (args.Uri.StartsWith("about:",StringComparison.OrdinalIgnoreCase)) return;
                     args.Cancel = true;
-                    if (Uri.TryCreate(args.Uri,UriKind.Absolute,out var uri) && uri.Scheme is "http" or "https") await Launcher.LaunchUriAsync(uri);
+                    if (Uri.TryCreate(args.Uri,UriKind.Absolute,out var uri) && uri.Scheme is "http" or "https")
+                        try {await Launcher.LaunchUriAsync(uri);}catch(Exception error){CrashJournal.Fault("SearchWidget.Link",error);}
                 };
             }
             SearchWidget.NavigateToString("<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'unsafe-inline'; img-src https: data:;\"></head><body>"+html+"</body></html>");
         }
-        catch { SearchWidgetExpander.Visibility = Visibility.Collapsed; VM.Status = "搜索建议组件无法显示；来源链接仍可查看。请检查 WebView2 Runtime。"; }
+        catch(Exception error) { CrashJournal.Fault("SearchWidget.Unavailable",error,owner?.Id);if(owner==displayed && !categoryClosed){SearchWidgetExpander.Visibility = Visibility.Collapsed; VM.Status = "搜索建议组件无法显示；来源链接仍可查看。请检查 WebView2 Runtime。";} }
     }
     private int animatedPreviewVersion=-1;
     private string loadedPhotoId="";
@@ -190,7 +202,9 @@ public sealed partial class MainPage
     {
         var ready=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);EventHandler<object>? frame=null;
         frame=(_,_)=>{Microsoft.UI.Xaml.Media.CompositionTarget.Rendering-=frame;ready.TrySetResult();};
-        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering+=frame;await ready.Task;
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering+=frame;
+        try {await Task.WhenAny(ready.Task,Task.Delay(200));}
+        finally {Microsoft.UI.Xaml.Media.CompositionTarget.Rendering-=frame;}
     }
     private void RevealPhoto() {if(animatedPreviewVersion==previewVersion)return;animatedPreviewVersion=previewVersion;_ = FinishPreviewTransitionAsync(previewVersion);}
     private async Task ShowPhotoAsync(Photo? photo)
@@ -199,8 +213,19 @@ public sealed partial class MainPage
         loadedPhotoId=photo?.Id??"";previewLoading=photo is not null;
         previewCancellation?.Cancel();previewCancellation?.Dispose();previewCancellation=new();var ct=previewCancellation.Token;
         var version=++previewVersion;
+        var owner=displayed?.Id;
+        CrashJournal.Trace("Preview.Switch.Begin",owner,version);
+        if(drawing){drawing=false;PreviewHost.ReleasePointerCaptures();}
         PreviewHost.IsHitTestVisible=false;
-        if(photo is not null)await BeginPreviewTransitionAsync(version);else ClearTransition(PreviewTransitionCover);
+        try
+        {
+            if(photo is not null)await BeginPreviewTransitionAsync(version);else ClearTransition(PreviewTransitionCover);
+        }
+        catch(Exception error)
+        {
+            CrashJournal.Fault("Preview.Transition",error,owner);
+            if(version==previewVersion)ClearTransition(PreviewTransitionCover);
+        }
         if(version!=previewVersion||ct.IsCancellationRequested)return;
         originalPreviewId=null;MainImage.Visibility=Visibility.Visible;PreviewZoom.ChangeView(0,0,1,true);VideoPlayer.MediaPlayer?.Pause();VideoPlayer.Source=null;VideoPlayer.Visibility=Visibility.Collapsed;
         CropOutline.Visibility = Visibility.Collapsed;
@@ -213,8 +238,8 @@ public sealed partial class MainPage
             thumbnailPath=await VM.Images.EnsureThumbnailAsync(photo,ct);} catch(OperationCanceledException){return;}
         if(version!=previewVersion || ct.IsCancellationRequested)return;
         try {
-        if(thumbnailPath.Length>0 && File.Exists(thumbnailPath)) { var thumbFile=await StorageFile.GetFileFromPathAsync(thumbnailPath);using var thumbStream=await thumbFile.OpenReadAsync();var thumb=new BitmapImage();await thumb.SetSourceAsync(thumbStream);if(version!=previewVersion)return;MainImage.Source=thumb;EmptyPreview.Visibility=Visibility.Collapsed;await NextLayoutFrameAsync();if(version!=previewVersion)return;PreviewHost.IsHitTestVisible=PreviewTransitionCover.Visibility!=Visibility.Visible;DrawSavedCrop();RevealPhoto();await Task.Delay(UiMotion.Enabled?130:0,ct); }
-        } catch(OperationCanceledException){return;} catch(Exception error){CrashJournal.Trace("Thumbnail.Display."+error.GetType().Name);}
+        if(thumbnailPath.Length>0 && File.Exists(thumbnailPath)) { var thumbFile=await StorageFile.GetFileFromPathAsync(thumbnailPath);using var thumbStream=await thumbFile.OpenReadAsync();ct.ThrowIfCancellationRequested();var thumb=new BitmapImage();await thumb.SetSourceAsync(thumbStream).AsTask(ct);if(version!=previewVersion)return;MainImage.Source=thumb;EmptyPreview.Visibility=Visibility.Collapsed;await NextLayoutFrameAsync();if(version!=previewVersion)return;CrashJournal.Trace("Preview.Thumbnail.Ready",owner,version);PreviewHost.IsHitTestVisible=PreviewTransitionCover.Visibility!=Visibility.Visible;DrawSavedCrop();RevealPhoto();await Task.Delay(UiMotion.Enabled?130:0,ct); }
+        } catch(OperationCanceledException){return;} catch(Exception error){CrashJournal.Fault("Thumbnail.Display",error,owner);}
 
         try
         {
@@ -224,17 +249,19 @@ public sealed partial class MainPage
 #endif
             var preview=await VM.Images.EnsurePreviewAsync(photo,ct);ct.ThrowIfCancellationRequested();if(preview.Length==0) throw new IOException(photo.Error);
             var file = await StorageFile.GetFileFromPathAsync(preview); using var stream = await file.OpenReadAsync();
-            var image = new BitmapImage(); await image.SetSourceAsync(stream);
+            ct.ThrowIfCancellationRequested();
+            var image = new BitmapImage(); await image.SetSourceAsync(stream).AsTask(ct);
             if (version != previewVersion) return;
             while(drawing && version==previewVersion)await Task.Delay(16,ct);if(version!=previewVersion)return;
-            MainImage.Source = image;await NextLayoutFrameAsync();if(version!=previewVersion)return;RevealPhoto();
+            if(originalPreviewId!=photo.Id)MainImage.Source = image;
+            await NextLayoutFrameAsync();if(version!=previewVersion)return;RevealPhoto();CrashJournal.Trace("Preview.Image.Ready",owner,version);
             if(PhotoService.IsVideo(photo)) { VideoPlayer.Source=Windows.Media.Core.MediaSource.CreateFromUri(new Uri(photo.Path));VideoPlayer.Visibility=Visibility.Visible;MainImage.Visibility=Visibility.Collapsed;if(VideoPlayer.MediaPlayer is { } player) { player.AutoPlay=false;player.PlaybackSession.Position=TimeSpan.FromSeconds(photo.VideoPositionSeconds); } }
             PhotoCaption.Text=photo.Caption; EmptyPreview.Visibility = Visibility.Collapsed; DrawSavedCrop();
             if(photo.Asset is not null) VM.SaveAsset(photo.Asset);
             var next=displayed?.Photos.SkipWhile(p=>p.Id!=photo.Id).Skip(1).FirstOrDefault();if(next is not null && version==previewVersion) _=PrefetchAsync(next,ct);
         }
         catch(OperationCanceledException) { }
-        catch { if (version == previewVersion) {ClearTransition(PreviewTransitionCover); MainImage.Source = null; EmptyPreview.Visibility = Visibility.Visible; EmptyPreview.Text = photo.Error.Length>0?photo.Error:"预览暂不可用，可重选照片重试；原图未修改。"; } }
+        catch(Exception error) { CrashJournal.Fault("Preview.Decode",error,owner);if (version == previewVersion) {ClearTransition(PreviewTransitionCover); MainImage.Source = null; EmptyPreview.Visibility = Visibility.Visible; EmptyPreview.Text = photo.Error.Length>0?photo.Error:"预览暂不可用，可重选照片重试；原图未修改。"; } }
         finally {if(version==previewVersion){previewLoading=false;PreviewHost.IsHitTestVisible=true;DrawSavedCrop();}}
     }
     private async Task PrefetchAsync(Photo photo,CancellationToken ct) { try { await Task.Delay(150,ct);await VM.Images.EnsurePreviewAsync(photo,ct); } catch { } }
@@ -460,7 +487,8 @@ public sealed partial class MainPage
     {
         if(CropToggle.IsChecked!=true || currentPhoto is null || displayed?.Editable!=true) return;
         var p=e.GetCurrentPoint(PreviewHost); var rect=ImageRect(); if(!p.Properties.IsLeftButtonPressed || !rect.Contains(p.Position)) return;
-        cropStart=p.Position; drawing=true; PreviewHost.CapturePointer(e.Pointer); DrawBox(cropStart,cropStart); e.Handled=true;
+        if(rect.Width<=0 || rect.Height<=0 || !PreviewHost.CapturePointer(e.Pointer))return;
+        cropStart=p.Position;drawing=true;DrawBox(cropStart,cropStart);e.Handled=true;
     }
     private Point ClampPoint(Point p) { var r=ImageRect(); return new(Math.Clamp(p.X,r.X,r.Right),Math.Clamp(p.Y,r.Y,r.Bottom)); }
     private void Crop_Moved(object sender,PointerRoutedEventArgs e) { if(drawing) DrawBox(cropStart,ClampPoint(e.GetCurrentPoint(PreviewHost).Position)); }
@@ -468,14 +496,14 @@ public sealed partial class MainPage
     private void Crop_Released(object sender,PointerRoutedEventArgs e)
     {
         if(!drawing || currentPhoto is null) return; drawing=false; var end=ClampPoint(e.GetCurrentPoint(PreviewHost).Position); PreviewHost.ReleasePointerCapture(e.Pointer);
-        var r=ImageRect(); if(r.Width<=0 || Math.Abs(end.X-cropStart.X)<8 || Math.Abs(end.Y-cropStart.Y)<8) { DrawSavedCrop(); return; }
+        var r=ImageRect(); if(r.Width<=0 || r.Height<=0 || Math.Abs(end.X-cropStart.X)<8 || Math.Abs(end.Y-cropStart.Y)<8) { DrawSavedCrop(); return; }
         var before=VM.CaptureEdits(displayed is null?[]:new[]{displayed});currentPhoto.Crop=new((Math.Min(cropStart.X,end.X)-r.X)/r.Width,(Math.Min(cropStart.Y,end.Y)-r.Y)/r.Height,Math.Abs(end.X-cropStart.X)/r.Width,Math.Abs(end.Y-cropStart.Y)/r.Height);
         VM.RecordEdits(before,displayed is null?[]:new(){displayed.Id});CrashJournal.Trace("Photo.Crop",displayed?.Id);
         if(displayed is not null) InvalidateEvidence(displayed,"目标框选已改变");
         if(displayed is not null) { VM.MarkTouched(displayed);VM.SaveGroup(displayed);VerificationText.Text="目标已改变，需要重新识别或人工核对。"; } PhotoCaption.Text=currentPhoto.Caption; VM.Status="目标已框选；点击AI识别重新分析。";
     }
     private void Crop_Canceled(object sender,PointerRoutedEventArgs e) { drawing=false; DrawSavedCrop(); }
-    private void DrawSavedCrop() {if(drawing)return; if(CropOutline is null) return; if(currentPhoto?.Crop is not { } c) { CropOutline.Visibility=Visibility.Collapsed; return; } var r=ImageRect(); DrawBox(new(r.X+c.X*r.Width,r.Y+c.Y*r.Height),new(r.X+(c.X+c.Width)*r.Width,r.Y+(c.Y+c.Height)*r.Height)); }
+    private void DrawSavedCrop() {if(drawing || CropOutline is null)return;var r=ImageRect();if(currentPhoto?.Crop is not { } c || r.Width<=0 || r.Height<=0) { CropOutline.Visibility=Visibility.Collapsed; return; } DrawBox(new(r.X+c.X*r.Width,r.Y+c.Y*r.Height),new(r.X+(c.X+c.Width)*r.Width,r.Y+(c.Y+c.Height)*r.Height)); }
     private void ClearCrop_Click(object sender,RoutedEventArgs e) => LocalAction(()=> { if(currentPhoto is not null && displayed?.Editable==true) { currentPhoto.Crop=null; InvalidateEvidence(displayed,"目标框选已改变");VM.MarkTouched(displayed); } });
     private static void InvalidateEvidence(PhotoGroup group,string reason)
     {

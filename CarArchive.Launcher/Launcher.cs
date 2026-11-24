@@ -15,10 +15,30 @@ internal static class Launcher
             if(!File.Exists(program)) throw new FileNotFoundException("请先完整解压便携包，保留 Program 子目录。",program);
             var arguments=new StringBuilder();
             foreach(var arg in args) { if(arguments.Length>0) arguments.Append(' ');arguments.Append(Quote(arg)); }
-            Process.Start(new ProcessStartInfo(program,arguments.ToString()) { WorkingDirectory=AppDomain.CurrentDomain.BaseDirectory,UseShellExecute=true });
+            using(var child=Process.Start(new ProcessStartInfo(program,arguments.ToString()) { WorkingDirectory=AppDomain.CurrentDomain.BaseDirectory,UseShellExecute=true }))
+            {
+                if(child==null)return 1;
+                child.WaitForExit();
+                if(child.ExitCode!=0)RecordExit(child);
+            }
             return 0;
         }
         catch(Exception error) { MessageBox.Show(error.Message,"CarArchive",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1; }
+    }
+    private static void RecordExit(Process child)
+    {
+        try
+        {
+            var data=Environment.GetEnvironmentVariable("CARARCHIVE_DATA_DIR");
+            if(string.IsNullOrWhiteSpace(data))data=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Data");
+            var directory=Path.Combine(data,"crashes");
+            if(!Directory.Exists(directory))return;
+            var path=Path.Combine(directory,"exit-"+child.Id+".txt");
+            File.WriteAllText(path,child.ExitCode.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach(var file in new DirectoryInfo(directory).GetFiles("exit-*.txt"))
+                if(file.LastWriteTimeUtc<DateTime.UtcNow.AddDays(-7))file.Delete();
+        }
+        catch { }
     }
     private static string Quote(string text)
     {

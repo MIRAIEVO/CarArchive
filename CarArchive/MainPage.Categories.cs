@@ -188,7 +188,8 @@ public sealed partial class MainPage
             RuleText.Text=displayed.AppliedRule+(displayed.ManualTargetBrand && recognized.Length>0 && !recognized.Equals(brand,StringComparison.OrdinalIgnoreCase)?$" · 手动品牌目录：{brand}；识别品牌：{recognized}":"");
             ToolTipService.SetToolTip(RuleText,RuleText.Text);
         }
-        TargetPathText.Text = text;
+        TargetPathText.Text = text.Length>0 && Path.IsPathFullyQualified(text)
+            ? Path.GetRelativePath(root,text).Replace(Path.DirectorySeparatorChar,'／') : text;
         ToolTipService.SetToolTip(TargetPathText, text);
     }
     private string? BrandDirectoryPath()

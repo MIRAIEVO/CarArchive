@@ -120,11 +120,15 @@ public sealed class PhotoService
     {
         // Encode directly at the requested size; do not build a 2048px preview for API input.
         ct.ThrowIfCancellationRequested();
+        CrashJournal.Trace("Analysis.Decode.Begin");
         return await Task.Run(async ()=> {
             await decoders.WaitAsync(ct);
             try {
                 var file=await StorageFile.GetFileFromPathAsync(await DecodePathAsync(photo,ct)); using var stream=await file.OpenReadAsync(); var decoder=await BitmapDecoder.CreateAsync(stream);
-                return await EncodeAsync(decoder,longestEdge,photo.Crop);
+                var bytes=await EncodeAsync(decoder,longestEdge,photo.Crop);
+                CrashJournal.Trace("Analysis.Decode.Ready");return bytes;
+            } catch(OperationCanceledException) {throw;}
+            catch(Exception error){CrashJournal.Fault("Analysis.Decode",error);throw;
             } finally { decoders.Release(); }
         },ct);
     }

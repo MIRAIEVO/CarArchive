@@ -1,8 +1,8 @@
-﻿# CarArchive 1.3.2 · 车影归档
+﻿# CarArchive 1.3.3 · 车影归档
 
 Windows 汽车照片分类工具：导入照片、调整分组、AI识别／网页辅助识别、复核命名后归档。采用 C#、.NET 10、WinUI 3、SQLite。
 
-- [下载 CarArchive 1.3.2 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.3.2/CarArchive-1.3.2-windows-x64.zip)
+- [下载 CarArchive 1.3.3 Windows x64 便携版](https://github.com/MIRAIEVO/CarArchive/releases/download/v1.3.3/CarArchive-1.3.3-windows-x64.zip)
 - [使用说明](CarArchive/README.md) · [升级记录](CHANGELOG.md) · [版本说明](docs/releases/README.md)
 - [协作交接](docs/collaboration/HANDOFF.md) · [共同作者](AUTHORS.md)
 

@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
+using CarArchive.Core;
 
 namespace CarArchive;
 
@@ -28,6 +29,7 @@ public sealed partial class MainPage
 
     private static void PlaceTransitionElement(Canvas cover, FrameworkElement element, Rect bounds)
     {
+        if(bounds.IsEmpty || bounds.Width<=0 || bounds.Height<=0 || !double.IsFinite(bounds.X+ bounds.Y+bounds.Width+bounds.Height))return;
         element.Width = bounds.Width;
         element.Height = bounds.Height;
         Canvas.SetLeft(element, bounds.X);
@@ -60,6 +62,16 @@ public sealed partial class MainPage
     }
 
     private void BeginThumbnailTransition()
+    {
+        try { PrepareThumbnailTransition(); }
+        catch(Exception error)
+        {
+            ClearTransition(ThumbnailTransitionCover);
+            CrashJournal.Fault("Preview.ThumbnailTransition",error);
+        }
+    }
+
+    private void PrepareThumbnailTransition()
     {
         thumbnailTransitionVersion++;
         if (ThumbnailTransitionCover.Visibility != Visibility.Visible)

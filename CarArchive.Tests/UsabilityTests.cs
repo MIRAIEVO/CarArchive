@@ -76,9 +76,12 @@ static class UsabilityTests
         });
         test("Crash journal recovers an interrupted session on the following startup",()=>
         {
-            var root=Area();using(var first=new CrashJournal(root)) { first.Record("Before.NativeFailure");first.Flush(); }
+            var root=Area();using(var first=new CrashJournal(root)) { first.Record("Before.NativeFailure");first.PulseUi();first.Flush(); }
+            File.WriteAllText(Path.Combine(root,$"exit-{Environment.ProcessId}.txt"),unchecked((int)0xC000027B).ToString(System.Globalization.CultureInfo.InvariantCulture));
             using var second=new CrashJournal(root);var report=File.ReadAllText(Directory.GetFiles(root,"crash-*.json").Single());
-            Check(report.Contains("UnexpectedExit") && report.Contains("Before.NativeFailure"));second.Complete();Check(!File.Exists(Path.Combine(root,"session-pending.json")));return Task.CompletedTask;
+            Check(report.Contains("UnexpectedExit") && report.Contains("Before.NativeFailure") && report.Contains("0xC000027B"));
+            using var data=JsonDocument.Parse(report);Check(data.RootElement.GetProperty("Session").GetProperty("LastUiHeartbeat").ValueKind==JsonValueKind.String);
+            second.Complete();Check(!File.Exists(Path.Combine(root,"session-pending.json")));return Task.CompletedTask;
         });
     }
     private sealed class CropImages:IPhotoService

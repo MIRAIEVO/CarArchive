@@ -49,7 +49,15 @@ public static class NamingGuideEngine
             var mapped=(baseRows.Count>0?baseRows:aliasGeneration).GroupBy(e=>e.Generation).OrderByDescending(g=>g.Count()).ThenByDescending(g=>g.Max(e=>e.ConfirmationOrder)).FirstOrDefault()?.Key;
             var derivative=Regex.IsMatch(model,@"^(?:RS\s*\d|S\s*\d|RS\s*Q|SQ|TT\s*(?:RS|S)\b)",RegexOptions.IgnoreCase);
             if(mapped is not null) generation=mapped;
-            else if(derivative && !Regex.IsMatch(family,@"^A[4-8]$")) { generation="";warnings.Add("缺少对应基础车系代次映射，请核对"); }
+            else if(derivative && !Regex.IsMatch(family,@"^A[4-8]$"))
+            {
+                var confirmed=exact.Where(e=>e.Generation.Length>0 && e.Phase==phase &&
+                    (generation.Length==0 || generation==e.Generation) &&
+                    (code.Length==0 || NamingText.Key(code)==NamingText.Key(e.RawCode) || NamingText.Key(code)==NamingText.Key(e.Code)))
+                    .Select(e=>e.Generation).Distinct().ToArray();
+                generation=confirmed.Length==1?confirmed[0]:"";
+                if(generation.Length==0)warnings.Add("缺少对应基础车系代次映射，请核对");
+            }
             model=NamingText.WithoutDrivetrain(model,b);
             model=Regex.Replace(model,@"\bRS\s+(\d)","RS$1",RegexOptions.IgnoreCase);
             model=Regex.Replace(model,@"\b([AS]\d)\s+L\b","$1L",RegexOptions.IgnoreCase);
@@ -154,7 +162,7 @@ public static class NamingGuideEngine
         model=NamingText.RemoveRepeatedBodyTerms(model);
         var number=Regex.Match(generation,@"^\d+").Value;
         var roman=number.Length>0?NamingText.Roman(int.Parse(number)):"";
-        phase=Regex.Replace(phase,@"\b(\d+(?:st|nd|rd|th))[ _]+Facelift\b","$1_Facelift",RegexOptions.IgnoreCase);
+        phase=Regex.Replace(phase,@"\b(\d+(?:st|nd|rd|th))[ _]+(Facelift|LCI)\b","$1_$2",RegexOptions.IgnoreCase);
         var values=new Dictionary<string,string> { ["generation"]=generation,["number"]=number,["roman"]=roman,["code"]=code,["phase"]=phase,["years"]=years };
         // If a required identity is missing, do not emit a misleading phase-only parenthesis.
         var primary=Regex.Matches(style,@"\{(generation|number|roman|code|years)\}").Select(m=>m.Groups[1].Value).ToList();

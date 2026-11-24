@@ -154,7 +154,9 @@ public static class NamingGuideBuilder
         else
         {
             var gen=Regex.Match(suffix,@"^\d{1,2}(?:st|nd|rd|th)\b",RegexOptions.IgnoreCase);
-            if(gen.Success)
+            var phaseOnly=NamingSupplementRules.Suffix(e.Brand,e.Family,e.Model)=="{phase}"
+                && Regex.IsMatch(suffix,@"^\d+(?:st|nd|rd|th)\s+(?:Facelift|LCI)$",RegexOptions.IgnoreCase);
+            if(gen.Success && !phaseOnly)
             { e.Generation=NamingText.Generation(gen.Value);suffix=suffix[..gen.Index]+"{generation}"+suffix[(gen.Index+gen.Length)..]; }
         }
         e.Phase=NamingText.Phase(suffix);
