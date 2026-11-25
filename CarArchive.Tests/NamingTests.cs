@@ -47,7 +47,9 @@ static class NamingTests
             var state=new WorkspaceState();var guide=Build(Area(),state,("Unmapped","Special Roadster",null));
             var result=NamingGuideEngine.Generate(new() { Brand="Unmapped",Series="Different API series label",Variant="Special Roadster",Generation="1st" },state,guide);
             Check(result.Name=="Special Roadster",result.Name);
-            Check(NamingGuideEngine.Generate(new() { Brand="Unmapped",Series="Different API series label",Variant="Special Roadster GT",Generation="1st" },state,guide).Name=="Special Roadster GT (1st)");return Task.CompletedTask;
+            var unmatched=NamingGuideEngine.Generate(new() { Brand="Unmapped",Variant="Special Roadster GT",Generation="1st" },state,guide);
+            Check(unmatched.Name=="Special Roadster GT (1st)",unmatched.Name);
+            return Task.CompletedTask;
         });
         test("Naming: BMW uses LCI and never reintroduces a historical duplicated body phrase",()=> {
             var state=new WorkspaceState();var guide=Build(Area(),state,("BMW","6 Series Coupe Coupe (F13 Facelift)",new() { Brand="BMW",Series="6 Series",Variant="6 Series Coupe",Body="Coupe",Code="F13",Generation="3rd" }));
@@ -166,6 +168,32 @@ static class NamingTests
             Check(JsonSerializer.Serialize(car)==raw,"Naming must not rewrite identification evidence.");
             car.OfficialName="Example Other Model Limited";Check(NamingGuideEngine.Generate(car,state,guide).Name=="Model Coupe Sport (X1)");
             Check(NamingText.RemoveRepeatedBodyTerms("Model Gran Coupe Coupe")=="Model Gran Coupe");return Task.CompletedTask;
+        });
+        test("Naming: fill an omitted series without repeating series or changing standalone variants",()=> {
+            foreach(var (brand,series,variant,official,expected) in new[] {
+                ("Honda","Civic","Type R","","Civic Type R"),
+                ("Honda","Civic","Type R","Honda Civic Type R Limited Edition","Civic Type R Limited Edition"),
+                ("Porsche","911","GT3 RS","","911 GT3 RS"),
+                ("Porsche","911","911 911 GT3 RS","","911 GT3 RS"),
+                ("Aston Martin","DBX","DBX707","","DBX707"),
+                ("Bentley","Continental GT","Continental GTC Speed","","Continental GTC Speed"),
+                ("Bentley","Continental GT","GTC Speed","","Continental GTC Speed"),
+                ("Lexus","IS","IS500 F Sport Performance","","IS500 F Sport Performance"),
+                ("Toyota","Yaris","GR Yaris","","GR Yaris"),
+                ("Mazda","CX-5","CX5 Sport","","CX5 Sport"),
+                ("BMW","3 Series","330i","","330i"),
+                ("Audi","A4","RS4 Avant","","RS4 Avant") })
+            {
+                var actual=NamingText.FullModel(new() { Brand=brand,Series=series,Variant=variant,OfficialName=official });
+                Check(actual==expected,actual+" != "+expected);
+            }
+            var generated=NamingGuideEngine.Generate(new() { Brand="Porsche",Series="911",Variant="GT3 RS",Generation="7th",Code="991",Phase="Facelift" },new()).Name;
+            Check(generated=="911 GT3 RS (991.2)",generated);
+            var audi=NamingGuideEngine.Generate(new() { Brand="Audi",Series="100",Variant="100",Code="C3",Phase="Facelift" },new()).Name;
+            Check(audi=="100 (C3 Facelift)",audi);
+            var mclaren=NamingGuideEngine.Generate(new() { Brand="McLaren",Series="750S",Variant="750S Coupe",Generation="1st" },new()).Name;
+            Check(mclaren=="750S (1st)",mclaren);
+            return Task.CompletedTask;
         });
         test("Naming V2: drivetrain markers are removed in compact and prefixed forms without losing editions",()=> {
             foreach(var (brand,variant,expected) in new[] {

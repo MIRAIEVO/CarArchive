@@ -277,13 +277,17 @@ public sealed partial class MainViewModel : Observable
         Func<ArchiveDuplicate,CancellationToken,Task<ArchiveDuplicateChoice>>? decide=null)
     {
         if(group.Archived) throw new InvalidOperationException("本组已经归档。");
-        if(group.FilesPending || Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (o.GroupId==group.Id || o.SourceGroupId==group.Id))) throw new InvalidOperationException("本组照片操作尚未完成，请先恢复后再归档。");
-        if(Store.Jobs().Any(j=>j.GroupId==group.Id && j.Status is "Pending" or "Interrupted")) throw new InvalidOperationException("本组有中断操作，请从操作记录恢复。");
+        if(group.FilesPending) throw new InvalidOperationException("本组照片操作尚未完成，请先恢复后再归档。");
         var selectedRevision=selectionRevision;var root=capturedRoot ?? State.Settings.ArchiveRoot;var brand=capturedBrand??group.TargetBrand;var folder=capturedFolder??group.FolderName;
         // Freeze the source/reference set before leaving the UI thread.
         var snapshot=new PhotoGroup { Id=group.Id,Photos=new(group.Photos.Select(p=>p.Snapshot())) };
         var references=new WorkspaceState { Groups=Groups.Select(g=>new PhotoGroup { Id=g.Id,Archived=g.Archived,Photos=new(g.Photos.Select(p=>new Photo { AssetId=p.AssetId,Excluded=p.Excluded })) }).ToList() };
         await FlushWritesAsync();
+        await Task.Run(()=>
+        {
+            if(Database.PhotoOperations().Any(o=>PhotoLifecycleService.Unfinished(o) && (o.GroupId==group.Id || o.SourceGroupId==group.Id))) throw new InvalidOperationException("本组照片操作尚未完成，请先恢复后再归档。");
+            if(Store.Jobs().Any(j=>j.GroupId==group.Id && j.Status is "Pending" or "Interrupted")) throw new InvalidOperationException("本组有中断操作，请从操作记录恢复。");
+        },ct);
         var ui=SynchronizationContext.Current;
         Task<T> OnUi<T>(Func<Task<T>> action)
         {

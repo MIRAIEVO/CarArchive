@@ -130,6 +130,7 @@ public static class NamingGuideBuilder
                 || brand.Equals("Rolls-Royce",StringComparison.OrdinalIgnoreCase) && text.Contains("现代",StringComparison.Ordinal) && text.Contains("生产",StringComparison.Ordinal)
                 || brand.Equals("Ferrari",StringComparison.OrdinalIgnoreCase) && text.Contains("不添加",StringComparison.Ordinal)
                 || brand.Equals("Porsche",StringComparison.OrdinalIgnoreCase) && text.Contains("718",StringComparison.Ordinal) && text.Contains("代号",StringComparison.Ordinal)
+                || brand.Equals("McLaren",StringComparison.OrdinalIgnoreCase) && text.Contains("不写Coupe",StringComparison.OrdinalIgnoreCase)
                 || brand.StartsWith("Mercedes-",StringComparison.OrdinalIgnoreCase) && text.Contains("代号",StringComparison.Ordinal);
             if(recognized && NamingPolicies.For(brand,guide) is { } policy) policy.Sources.Add(file);
             if(!recognized) guide.Warnings.Add("补充文件已留存，未识别的自然语言要求需人工更新结构化指南："+file);

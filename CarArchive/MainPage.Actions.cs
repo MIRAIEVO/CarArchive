@@ -39,11 +39,11 @@ public sealed partial class MainPage
         WireSuggestions(FolderEdit,OpenFolderSuggestions,CloseFolderSuggestions);
         WireSuggestions(TargetBrandEdit,OpenBrandSuggestions,CloseBrandSuggestions);
         editorSaveTimer.Tick+=(_,_)=> { editorSaveTimer.Stop();if(displayed is not null && displayed.Editable) VM.SaveGroup(displayed); };
-        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; RefreshActionPresentation();UpdateMergeSelection();if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) DispatcherQueue.TryEnqueue(()=> { if(!categoryClosed && VM.Selected==group) RenderSelection(); }); };
+        VM.GroupUpdated+=group=> { if(group.TaskState==GroupTaskState.Completed && group.TaskKind is "归档" or "恢复归档" or "撤销") _=RefreshCategoryCatalogAsync(true); if(VM.Selected!=group) return; RefreshActionPresentation();UpdateMergeSelection();UpdateThumbnailSelectionActions();if(group.TaskState is GroupTaskState.Completed or GroupTaskState.Failed or GroupTaskState.Canceled) DispatcherQueue.TryEnqueue(()=> { if(!categoryClosed && VM.Selected==group) RenderSelection(); }); };
         VM.StructureUpdated+=()=> { if(displayed!=VM.Selected) { FlushEditor();RenderSelection(); } };
         VM.PhotoUpdated+=photo=> { if(currentPhoto?.AssetId==photo.AssetId && MainImage.Source is null) _=ShowPhotoAsync(currentPhoto); };
         PreviewKeyDown+=Commands_KeyDown;
-        RefreshCommandHints();InitializeContextMenus();InitializeMergeTracking();InitializeActionPalette();
+        RefreshCommandHints();InitializeContextMenus();InitializeMergeTracking();InitializeThumbnailSelectionTracking();InitializeActionPalette();
         _=PrepareIndependentPhotosAsync();_ = WarmClipboardAsync();
         App.MainWindow!.Closed += (_, _) => { categoryClosed=true;categoryCancellation?.Cancel();previewCancellation?.Cancel();FlushEditor();VM.Close();CrashJournal.Current?.Complete(); };
         RenderSelection();
@@ -152,7 +152,7 @@ public sealed partial class MainPage
             UpdateExistingCategories();
             UpdateTargetPath();
         }
-        finally { rendering = false;UpdateMergeSelection();RefreshActionPresentation(); }
+        finally { rendering = false;UpdateMergeSelection();UpdateThumbnailSelectionActions();RefreshActionPresentation(); }
         _ = RefreshCategoryCatalogAsync();
         if(displayed!=previousGroup) {FocusCurrentGroup();_ = FadeThumbnailsAsync(displayed,thumbnailTransitionVersion);}
         _ = ShowPhotoAsync(currentPhoto);
@@ -276,6 +276,9 @@ public sealed partial class MainPage
     private void Photo_Changed(object sender, SelectionChangedEventArgs e)
     {
         foreach(var changedPhoto in e.RemovedItems.OfType<Photo>().Concat(e.AddedItems.OfType<Photo>())) UpdateThumbnailCaptionSelection(changedPhoto);
+        if(lastThumbnailSelection is null || !PhotoList.SelectedItems.Contains(lastThumbnailSelection))
+            lastThumbnailSelection=e.AddedItems.OfType<Photo>().LastOrDefault();
+        UpdateThumbnailSelectionActions();
         if (rendering) return;
         FocusCurrentGroup();
         var photo = e.AddedItems.OfType<Photo>().LastOrDefault(); if (photo is not null && displayed is not null) { currentPhoto = photo;VM.SelectPhoto(displayed,photo); _ = ShowPhotoAsync(photo); }
@@ -426,22 +429,31 @@ public sealed partial class MainPage
             if(VM.State.Settings.ArchiveRoot.Length==0) throw new InvalidOperationException("请先选择归档根目录。");
             var root=VM.State.Settings.ArchiveRoot;var brand=group.TargetBrand;var folder=group.FolderName;
 
-            await VM.RunGroupAsync(group,"归档",true,ct=>VM.ArchiveAsync(group,ct,root,brand,folder,ConfirmArchiveDuplicateAsync));
+            await VM.RunGroupAsync(group,"归档",true,ct=>VM.ArchiveAsync(group,ct,root,brand,folder,
+                (duplicate,token)=>ConfirmArchiveDuplicateAsync(group,duplicate,token)));
             if(group.Archived) { var rules=VM.Learn(group,false);if(VM.Selected==group) await ConsiderRuleAsync(rules);await VM.EnsureNamingGuideAsync(true); _=RefreshCategoryCatalogAsync(); }
         }
         catch(Exception error) { VM.Status=error.Message; Notice.Severity=InfoBarSeverity.Warning; }
     }
     private void Undo_Click(object sender,RoutedEventArgs e)=>ExecuteCommand("undoArchive",sender,e);
-    private async Task<ArchiveDuplicateChoice> ConfirmArchiveDuplicateAsync(ArchiveDuplicate duplicate,CancellationToken ct)
+    private TaskCompletionSource<ArchiveDuplicateChoice>? archiveDuplicateDecision;
+    private async Task<ArchiveDuplicateChoice> ConfirmArchiveDuplicateAsync(PhotoGroup group,ArchiveDuplicate duplicate,CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        while(ModalOpen())await Task.Delay(150,ct);
-        var result=await DialogAsync("发现相同内容",Paragraph(
-            $"待移动：{duplicate.Source}\n\n相同文件：{duplicate.Existing}\n\n仍移动会保留两份；如重名，自动加序号。回收只处理待移动文件。"),
-            "仍移动","回收待移动文件","取消本组");
-        ct.ThrowIfCancellationRequested();
-        return result switch {ContentDialogResult.Primary=>ArchiveDuplicateChoice.Move,
-            ContentDialogResult.Secondary=>ArchiveDuplicateChoice.Recycle,_=>ArchiveDuplicateChoice.Cancel};
+        var decision=new TaskCompletionSource<ArchiveDuplicateChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
+        archiveDuplicateDecision=decision;
+        ArchiveDuplicateBar.Title="归档发现相同内容 · "+group.Title;
+        ArchiveDuplicateDetails.Text=$"待移动 {Path.GetFileName(duplicate.Source)} · 已有 {Path.GetFileName(duplicate.Existing)}";
+        ToolTipService.SetToolTip(ArchiveDuplicateDetails,$"待移动：{duplicate.Source}\n已有：{duplicate.Existing}");
+        ArchiveDuplicateBar.IsOpen=true;
+        using var registration=ct.Register(()=>decision.TrySetCanceled(ct));
+        try {return await decision.Task;}
+        finally {archiveDuplicateDecision=null;ArchiveDuplicateBar.IsOpen=false;}
+    }
+    private void ArchiveDuplicateDecision_Click(object sender,RoutedEventArgs args)
+    {
+        if(sender is Button {Tag:string value} && Enum.TryParse<ArchiveDuplicateChoice>(value,out var choice))
+            archiveDuplicateDecision?.TrySetResult(choice);
     }
     private async Task UndoCoreAsync()
     {

@@ -208,9 +208,8 @@ public sealed partial class MainPage
     {
         SelectContextItem(PhotoList,args.OriginalSource as DependencyObject);
         var count=PhotoList.SelectedItems.Count;var editable=VM.SelectedEditable && count>0;
-        var querying=VM.Selected is { IsWorking:true,TaskKind:"联网识别" };
-        SplitPhotosMenu.IsEnabled=(editable || querying && count>0 && PhotoList.SelectedItems.OfType<Photo>().All(p=>!VM.Selected!.UploadingPhotoIds.Contains(p.Id))) && count<VM.Selected!.Photos.Count;
-        CopyPhotosMenu.IsEnabled=editable || querying && count>0;RemovePhotosMenu.IsEnabled=editable;
+        var (copy,split)=AvailablePhotoActions();
+        SplitPhotosMenu.IsEnabled=split;CopyPhotosMenu.IsEnabled=copy;RemovePhotosMenu.IsEnabled=editable;
         RecyclePhotosMenu.IsEnabled=editable;
         CrashJournal.Trace("Menu.Photos",VM.Selected?.Id,count);
     }

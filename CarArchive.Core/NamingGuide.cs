@@ -134,18 +134,68 @@ public static partial class NamingText
             if(name.StartsWith(b+" ",StringComparison.OrdinalIgnoreCase)) name=name[(b.Length+1)..].TrimStart();
         return Clean(name);
     }
-    public static string FullModel(CarIdentity car)
+    public static string FullModel(CarIdentity car) => FullModel(car,true);
+    internal static string FullModel(CarIdentity car,bool completeSeries)
     {
         var variant=StripBrand(car.Variant,car.Brand);
         var official=StripBrand(car.OfficialName,car.Brand);
         // A confirmed, fuller official designation may add body/trim/special-edition words.
         // Never replace a specific variant with a shorter official series name.
         var name=variant.Length==0?official:official.Length>variant.Length && ModelKey(official).Contains(ModelKey(variant),StringComparison.Ordinal)?official:variant;
-        if(name.Length==0) name=StripBrand(car.Series,car.Brand);
+        var series=StripBrand(car.Series,car.Brand);
+        if(name.Length==0) name=series;
+        else if(completeSeries && series.Length>0)
+        {
+            name=RemoveRepeatedSeries(name,series);
+            if(PolicyBrand(car.Brand)=="bentley" && Key(series)=="continental gt" &&
+                Regex.IsMatch(name,@"^GTC\b",RegexOptions.IgnoreCase)) name="Continental "+name;
+            if(!ContainsSeries(name,series) && !StandaloneModel(car.Brand,series,name)) name=series+" "+name;
+        }
         var package=Clean(car.Package);
         var packageKey=ModelKey(package);
         if(name.Length>0 && packageKey.Length>0 && !ModelKey(name).Contains(packageKey,StringComparison.Ordinal)) name+=" "+package;
         return RemoveRepeatedBodyTerms(name);
+    }
+    private static bool ContainsSeries(string name,string series)
+    {
+        var words=Key(name).Split(' ',StringSplitOptions.RemoveEmptyEntries);
+        var seriesKey=ModelKey(series);
+        if(seriesKey.Length==0) return true;
+        for(var start=0;start<words.Length;start++)
+        {
+            var combined="";
+            for(var end=start;end<words.Length && combined.Length<seriesKey.Length;end++)
+            {
+                combined+=words[end];
+                if(combined==seriesKey) return true;
+                if(!seriesKey.StartsWith(combined,StringComparison.Ordinal)) break;
+            }
+        }
+        return false;
+    }
+    private static string RemoveRepeatedSeries(string name,string series)
+    {
+        var words=Key(series).Split(' ',StringSplitOptions.RemoveEmptyEntries);
+        if(words.Length==0) return name;
+        var phrase=string.Join(@"[\s\p{Pd}]*",words.Select(Regex.Escape));
+        return Regex.Replace(name,$@"(?<![\p{{L}}\p{{N}}])({phrase})(?:[\s\p{{Pd}}]+{phrase})+(?![\p{{L}}\p{{N}}])","$1",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
+    }
+    private static bool StandaloneModel(string brand,string series,string model)
+    {
+        var key=PolicyBrand(brand);
+        var pattern=key switch
+        {
+            "aston martin" or "lexus" => @"^\p{L}+\d",
+            "bentley" => @"^Continental GTC\b",
+            "bmw" or "alpina" => @"^(?:M?[1-8]\d{2}[a-z]+|M[2-8]|[BD][3-8])\b",
+            "audi" => @"^(?:(?:A|S|RS|Q|SQ|RS\s*Q)\s*\dL?|TT\s*(?:RS|S)|e-tron)\b",
+            "mercedes" when Key(brand) is "mercedes amg" or "amg" ||
+                Regex.IsMatch(model,@"^AMG\s+\p{L}\s*\d",RegexOptions.IgnoreCase) => @"^(?:AMG\s+)?[A-Z]{1,3}\s*\d{2,3}\b",
+            _ => ""
+        };
+        if(pattern.Length==0 || !Regex.IsMatch(model,pattern,RegexOptions.IgnoreCase|RegexOptions.CultureInvariant)) return false;
+        var family=Family(brand,"",model);
+        return Key(family)==Key(series) || key=="mercedes" && Key(model).StartsWith(Key(series).Split(' ')[0]+" ",StringComparison.Ordinal);
     }
     public static string RemoveRepeatedBodyTerms(string name)
     {

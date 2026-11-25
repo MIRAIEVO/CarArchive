@@ -25,7 +25,7 @@
   </ResourceDictionary>
  </Page.Resources>
  <Grid Padding="12,0,12,10" RowSpacing="6">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <Grid x:Name="TopBar" Height="40" ColumnSpacing="8">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -47,6 +47,10 @@
    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
     <Button x:Name="ImportGroupButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportGroup_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="Add"/><TextBlock x:Name="ImportGroupLabel" Text="导入一组" FontSize="12"/></StackPanel></Button>
     <Button x:Name="BatchImportButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" Click="ImportBatch_Click"><StackPanel Orientation="Horizontal" Spacing="6"><SymbolIcon Symbol="OpenFile"/><TextBlock x:Name="BatchImportLabel" Text="批量导入" FontSize="12"/></StackPanel></Button>
+    <Button x:Name="ToolboxButton" Height="36" MinHeight="0" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="工具箱" AutomationProperties.Name="工具箱">
+     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><ContentPresenter x:Name="ToolboxIcon" VerticalAlignment="Center"/><TextBlock Text="工具箱" FontSize="12" VerticalAlignment="Center"/></StackPanel>
+     <Button.Flyout><MenuFlyout><MenuFlyoutItem x:Name="DuplicateCheckerMenuItem" Text="重复文件检查" Click="OpenDuplicateChecker_Click"/></MenuFlyout></Button.Flyout>
+    </Button>
     <Button x:Name="MoreButton" Height="36" MinHeight="0" Padding="0" Width="36" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="更多命令">
      <SymbolIcon Symbol="More"/>
      <Button.Flyout><MenuFlyout>
@@ -64,7 +68,17 @@
    <TextBlock Grid.Column="1" Text="{x:Bind VM.Status,Mode=OneWay}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
    <InfoBar x:Name="Notice" IsOpen="False" Visibility="Collapsed"/>
   </Grid>
-  <Grid x:Name="BodyGrid" Grid.Row="2" ColumnSpacing="12" SizeChanged="Body_SizeChanged">
+  <InfoBar x:Name="ArchiveDuplicateBar" Grid.Row="2" Severity="Warning" IsClosable="False" Title="归档发现相同内容">
+   <StackPanel Spacing="5">
+    <TextBlock x:Name="ArchiveDuplicateDetails" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+    <StackPanel Orientation="Horizontal" Spacing="6">
+     <Button Content="仍移动" Tag="Move" Click="ArchiveDuplicateDecision_Click"/>
+     <Button Content="回收待移动文件" Tag="Recycle" Click="ArchiveDuplicateDecision_Click"/>
+     <Button Content="取消本组" Tag="Cancel" Click="ArchiveDuplicateDecision_Click"/>
+    </StackPanel>
+   </StackPanel>
+  </InfoBar>
+  <Grid x:Name="BodyGrid" Grid.Row="3" ColumnSpacing="12" SizeChanged="Body_SizeChanged">
    <Grid.ColumnDefinitions><ColumnDefinition x:Name="QueueColumn" Width="210"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="EditorColumn" Width="350"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition x:Name="NarrowRow" Height="0"/></Grid.RowDefinitions>
    <Grid x:Name="QueuePane" RowSpacing="6">
@@ -112,6 +126,13 @@
      <ListView.ItemTemplate><DataTemplate x:DataType="core:Photo"><StackPanel MinWidth="1" Spacing="2" Opacity="{x:Bind ThumbnailOpacity,Mode=OneWay}"><Image Source="{Binding ThumbnailUri,Converter={StaticResource SafeImageSourceConverter}}" Height="120" Stretch="Uniform" Loaded="Thumbnail_Loaded" ImageOpened="Thumbnail_Opened"/><Border Background="Transparent" HorizontalAlignment="Stretch" Padding="0,4" Loaded="ThumbnailCaption_Loaded"><TextBlock Text="{x:Bind Caption,Mode=OneWay}" FontSize="10" TextTrimming="CharacterEllipsis"/></Border></StackPanel></DataTemplate></ListView.ItemTemplate>
     </ListView></Border>
     <Canvas x:Name="ThumbnailTransitionCover" Grid.Row="3" Background="{ThemeResource PreviewSolidBrush}" IsHitTestVisible="False" Visibility="Collapsed"/>
+    <StackPanel x:Name="ThumbnailSelectionActions" Grid.Row="3" Width="108" Spacing="4" Orientation="Horizontal"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
+     <Button x:Name="CopySelectedThumbnails" Content="复制" Click="CopyPhotos_Click" Width="52" Height="30" MinHeight="0" Padding="5,0" CornerRadius="10"
+             Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="复制为新分组" AutomationProperties.Name="复制选中照片为新分组"/>
+     <Button x:Name="SplitSelectedThumbnails" Content="拆除" Click="Split_Click" Width="52" Height="30" MinHeight="0" Padding="5,0" CornerRadius="10"
+             Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="拆出为新分组" AutomationProperties.Name="将选中照片拆出为新分组"/>
+    </StackPanel>
 
    </Grid>
    <Grid x:Name="EditorPane" Grid.Column="2" RowSpacing="8">

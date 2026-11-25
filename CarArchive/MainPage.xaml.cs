@@ -16,6 +16,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        InitializeToolbox();
         Unloaded += (_, _) => { FlushEditor(); VM.Save(); };
     }
 }

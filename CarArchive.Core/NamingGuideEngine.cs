@@ -24,7 +24,19 @@ public static class NamingGuideEngine
         if(entries.Count==0 && guide is not null)
         {
             var aliasKey=NamingText.ModelKey(model);
-            var aliases=guide.Index.Brand(brandKey).Where(e=>NamingText.ModelKey(e.Model)==aliasKey || e.Aliases.Any(alias=>NamingText.ModelKey(NamingText.StripBrand(alias,car.Brand))==aliasKey)).ToList();
+            var original=LatinText.English(NamingText.FullModel(car,false));
+            var originalKey=NamingText.ModelKey(original);
+            var brandEntries=guide.Index.Brand(brandKey);
+            var aliases=brandEntries.Where(e=>NamingText.ModelKey(e.Model)==aliasKey || e.Aliases.Any(alias=>NamingText.ModelKey(NamingText.StripBrand(alias,car.Brand))==aliasKey)).ToList();
+            if(aliases.Count==0 && originalKey.Length>0 && originalKey!=aliasKey)
+            {
+                var existing=brandEntries.Where(e=>NamingText.ModelKey(e.Model)==originalKey).ToList();
+                if(existing.Select(e=>NamingText.Key(e.Family)).Distinct().Count()==1)
+                {
+                    aliases=existing;
+                    model=original;
+                }
+            }
             if(aliases.Select(e=>NamingText.Key(e.Family)).Distinct().Count()==1) { family=aliases[0].Family;entries=guide.Index.Family(brandKey,family); }
         }
         var codeSpellings=entries.Where(e=>code.Length>0 && NamingText.Key(e.Code)==NamingText.Key(code)).Select(e=>e.Code).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -87,8 +99,14 @@ public static class NamingGuideEngine
                     && (NamingText.Key(e.RawCode)==NamingText.Key(code) && code.Length>0 || generation.Length>0 && e.Generation==generation)).Select(e=>e.Code.ToUpperInvariant()).Distinct().ToList();
                 if(candidates.Count==1) common=candidates[0];
             }
-            code=common;style="{code} {phase}";reason+="；Audi 补充要求：B/C/D 代号";
+            code=common;
+            style=common.Length==0 && generation.Length>0 && profile?.Style.Contains("{generation}",StringComparison.Ordinal)==true
+                ?"{generation} {phase}":"{code} {phase}";
+            reason+=style.StartsWith("{generation}",StringComparison.Ordinal)
+                ?"；该车型无已知 B/C/D 代号，沿用指南代次":"；Audi 补充要求：B/C/D 代号";
         }
+        else if(b=="audi" && family=="100" && Regex.IsMatch(code,@"^C[1-4]$",RegexOptions.IgnoreCase))
+        { style="{code} {phase}";reason+="；Audi 100 沿用已有 C 系代号"; }
         else if(b=="audi") { style="{generation} {phase}";reason+="；Audi 补充要求：基础车系代次"; }
 
         if(profile?.PhaseWord=="LCI") phase=phase.Replace("Facelift","LCI",StringComparison.Ordinal);
@@ -159,6 +177,11 @@ public static class NamingGuideEngine
         }
         if(b=="bmw") model=Regex.Replace(model,"Coupé","Coupe",RegexOptions.IgnoreCase);
         model=NamingPolicies.Model(model,family,policy);
+        if(b=="mclaren")
+        {
+            var preferred=NamingText.Clean(Regex.Replace(model,@"\bCoupe\b"," ",RegexOptions.IgnoreCase));
+            if(preferred!=model) { model=preferred;reason+="；McLaren 补充要求：省略 Coupe"; }
+        }
         model=NamingText.RemoveRepeatedBodyTerms(model);
         var number=Regex.Match(generation,@"^\d+").Value;
         var roman=number.Length>0?NamingText.Roman(int.Parse(number)):"";
