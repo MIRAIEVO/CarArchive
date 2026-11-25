@@ -64,6 +64,19 @@ public sealed partial class MainPage
    var item=(ListViewItem)PhotoList.ContainerFromItem(selected);var thumb=VisualChild<Image>(item)!;ApplyThumbnailSize(thumb);
    var originalWidth=((StackPanel)thumb.Parent).Width;PhotoList.SelectedItem=group.Photos[1];PhotoList.SelectedItem=selected;await Task.Delay(100);
    Check(Math.Abs(((StackPanel)thumb.Parent).Width-originalWidth)<.1&&thumb.Height==imageThumbnailHeight,"Selection and cached bindings retain thumbnail size");
+   var anchor=group.Photos[1];
+   lastThumbnailSelection=anchor;PhotoList.SelectedItems.Add(anchor);await Task.Delay(100);
+   UpdateThumbnailSelectionActions();await Task.Delay(80);
+   var anchorImage=VisualChild<Image>((ListViewItem)PhotoList.ContainerFromItem(anchor))!;
+   var anchorPosition=anchorImage.TransformToVisual(ThumbnailSurface).TransformPoint(new());
+   var actionPosition=ThumbnailSelectionActions.TransformToVisual(ThumbnailSurface).TransformPoint(new());
+   Check(ThumbnailSelectionActions.Visibility==Visibility.Visible && ThumbnailSelectionActions.Orientation==Orientation.Vertical &&
+       actionPosition.X>=anchorPosition.X && actionPosition.X+ThumbnailSelectionActions.ActualWidth<=anchorPosition.X+anchorImage.ActualWidth &&
+       actionPosition.Y>=anchorPosition.Y && actionPosition.Y+ThumbnailSelectionActions.ActualHeight<=anchorPosition.Y+anchorImage.ActualHeight,
+       "Vertical actions are inside the last selected thumbnail");
+   PhotoList.SelectedItems.Remove(anchor);
+   var prompt=BuildVerificationPrompt(new(){Brand="Fixture",Series="Verification"});
+   Check(prompt.Contains("回复第一行")&&prompt.Contains("通过但有补充")&&prompt.Contains("限量台数")&&prompt.Contains("完整 JSON"),"Verification requests verdict, edition numbers and full JSON");
    var menu=(MenuFlyout)PhotoList.ContextFlyout;menu.ShowAt(PhotoList);await Task.Delay(140);
    ((IInvokeProvider)new MenuFlyoutItemAutomationPeer(SplitPhotosMenu).GetPattern(PatternInterface.Invoke)).Invoke();
    for(var i=0;i<60&&VM.Groups.Count<2;i++)await Task.Delay(30);

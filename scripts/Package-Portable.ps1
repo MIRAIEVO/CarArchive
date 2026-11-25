@@ -1,4 +1,4 @@
-﻿param([string]$Version='1.4',[switch]$NoRestore)
+﻿param([string]$Version='1.4.1',[switch]$NoRestore)
 $ErrorActionPreference='Stop'
 $repositoryRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if($Version -notmatch '^[0-9]+(?:[.][0-9]+){1,3}$'){throw 'Invalid package version'}

@@ -126,11 +126,11 @@
      <ListView.ItemTemplate><DataTemplate x:DataType="core:Photo"><StackPanel MinWidth="1" Spacing="2" Opacity="{x:Bind ThumbnailOpacity,Mode=OneWay}"><Image Source="{Binding ThumbnailUri,Converter={StaticResource SafeImageSourceConverter}}" Height="120" Stretch="Uniform" Loaded="Thumbnail_Loaded" ImageOpened="Thumbnail_Opened"/><Border Background="Transparent" HorizontalAlignment="Stretch" Padding="0,4" Loaded="ThumbnailCaption_Loaded"><TextBlock Text="{x:Bind Caption,Mode=OneWay}" FontSize="10" TextTrimming="CharacterEllipsis"/></Border></StackPanel></DataTemplate></ListView.ItemTemplate>
     </ListView></Border>
     <Canvas x:Name="ThumbnailTransitionCover" Grid.Row="3" Background="{ThemeResource PreviewSolidBrush}" IsHitTestVisible="False" Visibility="Collapsed"/>
-    <StackPanel x:Name="ThumbnailSelectionActions" Grid.Row="3" Width="108" Spacing="4" Orientation="Horizontal"
+    <StackPanel x:Name="ThumbnailSelectionActions" Grid.Row="3" Width="52" Spacing="4" Orientation="Vertical"
                 HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
-     <Button x:Name="CopySelectedThumbnails" Content="复制" Click="CopyPhotos_Click" Width="52" Height="30" MinHeight="0" Padding="5,0" CornerRadius="10"
+     <Button x:Name="CopySelectedThumbnails" Content="复制" Click="CopyPhotos_Click" HorizontalAlignment="Stretch" Height="30" MinWidth="0" MinHeight="0" Padding="0" CornerRadius="10"
              Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="复制为新分组" AutomationProperties.Name="复制选中照片为新分组"/>
-     <Button x:Name="SplitSelectedThumbnails" Content="拆除" Click="Split_Click" Width="52" Height="30" MinHeight="0" Padding="5,0" CornerRadius="10"
+     <Button x:Name="SplitSelectedThumbnails" Content="拆除" Click="Split_Click" HorizontalAlignment="Stretch" Height="30" MinWidth="0" MinHeight="0" Padding="0" CornerRadius="10"
              Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="拆出为新分组" AutomationProperties.Name="将选中照片拆出为新分组"/>
     </StackPanel>
 

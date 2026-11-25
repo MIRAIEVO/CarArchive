@@ -14,6 +14,17 @@ static class NamingTests
     }
     public static void Register(Action<string,Func<Task>> test)
     {
+        test("Naming: confirmed remember-name clicks enrich only real endpoints",()=> {
+            var root=Area();
+            Directory.CreateDirectory(Path.Combine(root,"Example","Roadster (X1)"));
+            var confirmed=new CarIdentity {Brand="Example",Series="Roadster",Variant="Roadster GT",Code="X1",Generation="2nd"};
+            var guide=NamingGuideBuilder.Build(root,new(),namingClicks:[
+                new() {Confirmed=confirmed,Original=new(){Brand="Wrong",Variant="Wrong"},FinalName="Roadster (X1)"},
+                new() {Confirmed=confirmed,FinalName="Unarchived"}]);
+            var entry=guide.Inventory.Single();
+            Check(entry.HasIdentity&&entry.Generation=="2nd"&&entry.Aliases.Contains("Roadster GT")&&!entry.Aliases.Contains("Wrong"));
+            return Task.CompletedTask;
+        });
         test("Naming: Body is informational, and complete names and naming keys do not depend on it",()=> {
             var car=new CarIdentity { Brand="Example",Series="Model",Variant="Model Coupe",Body="Coupe",Generation="3rd Generation",Code="X100",Package="Coupe",Phase="Facelift" };
             var before=car.NamingKey;Check(NamingService.DefaultName(car)=="Model Coupe (3rd Facelift)");car.Body="Sedan";

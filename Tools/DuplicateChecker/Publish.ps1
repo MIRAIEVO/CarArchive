@@ -1,6 +1,6 @@
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts\DuplicateChecker-1.4'),
-    [string]$ZipPath = (Join-Path $PSScriptRoot 'artifacts\DuplicateChecker-1.4-windows-x64.zip'),
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts\DuplicateChecker-1.4.1'),
+    [string]$ZipPath = (Join-Path $PSScriptRoot 'artifacts\DuplicateChecker-1.4.1-windows-x64.zip'),
     [switch]$NoRestore
 )
 $ErrorActionPreference='Stop'

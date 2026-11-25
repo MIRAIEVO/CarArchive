@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 
 namespace CarArchive.Tools;
 
-internal sealed record WorkspaceSnapshot(WorkspaceState State, List<ArchiveJob> Jobs);
+internal sealed record WorkspaceSnapshot(WorkspaceState State, List<ArchiveJob> Jobs, List<NamingClickLog> NamingClicks);
 
 internal static class ReadOnlyWorkspaceSnapshot
 {
@@ -31,9 +31,11 @@ internal static class ReadOnlyWorkspaceSnapshot
         }
         // Attach references in memory only. Do not run migrations, backups or task reconciliation.
         var jobs = tables.Contains("jobs") ? ReadRows<ArchiveJob>(connection, transaction, "SELECT json FROM jobs") : [];
+        var namingClicks = tables.Contains("naming_click_log")
+            ? ReadRows<NamingClickLog>(connection, transaction, "SELECT json FROM naming_click_log ORDER BY id") : [];
         transaction.Commit();
         StateStore.NormalizeAssets(state);
-        return new(state, jobs);
+        return new(state, jobs, namingClicks);
     }
 
     public static void Backup(string directory, string destination)

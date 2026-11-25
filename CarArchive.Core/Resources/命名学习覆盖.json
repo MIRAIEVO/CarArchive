@@ -1,12 +1,15 @@
 {
-  "Version": "1.4",
-  "Brands": 178,
-  "Folders": 2821,
-  "FamilyProfiles": 6351,
+  "Version": "1.4.1",
+  "Brands": 181,
+  "Folders": 2894,
+  "FamilyProfiles": 6540,
   "SupplementFiles": 24,
-  "Probes": 2821,
-  "ExactProbeMatches": 2674,
-  "DifferencesForReview": 147,
-  "IdentityMatched": 0,
-  "Scope": "Local names and supplements; historic manufacturer evidence tables retained without claiming fresh verification."
+  "Probes": 2894,
+  "ExactProbeMatches": 2744,
+  "DifferencesForReview": 150,
+  "IdentityMatched": 111,
+  "RememberNameClicks": 18,
+  "EditedNameClicks": 18,
+  "EndpointsMatchedByClicks": 12,
+  "Scope": "Local archive and supplements; confirmed remember-name records inform aliases and profiles only for existing endpoints. The release excludes raw click logs."
 }

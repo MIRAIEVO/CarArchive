@@ -9,9 +9,6 @@ namespace CarArchive;
 public sealed partial class MainPage
 {
     private Photo? lastThumbnailSelection;
-    private Photo? cachedThumbnailAnchor;
-    private double thumbnailAnchorRight;
-    private ScrollViewer? thumbnailActionScroll;
 
     private (bool Copy,bool Split) AvailablePhotoActions()
     {
@@ -38,7 +35,6 @@ public sealed partial class MainPage
         PhotoList.ContainerContentChanging+=(_,_)=>DispatcherQueue.TryEnqueue(UpdateThumbnailSelectionActions);
         if(VisualChild<ScrollViewer>(PhotoList) is { } scroll)
         {
-            thumbnailActionScroll=scroll;
             scroll.ViewChanged+=(_,_)=>UpdateThumbnailSelectionActions();
         }
     }
@@ -60,26 +56,28 @@ public sealed partial class MainPage
         if(rendering || !copy || PhotoList.SelectedItems.Count<2 || ThumbnailSurface.ActualWidth<=0)
         {
             ThumbnailSelectionActions.Visibility=Visibility.Collapsed;
-            cachedThumbnailAnchor=null;
             return;
         }
         var anchor=lastThumbnailSelection is { } clicked && PhotoList.SelectedItems.Contains(clicked)
             ? clicked : PhotoList.SelectedItems.OfType<Photo>().Last();
-        var offset=thumbnailActionScroll?.HorizontalOffset??0;
-        if(PhotoList.ContainerFromItem(anchor) is ListViewItem { ActualWidth:>0 } item)
-        {
-            var right=item.TransformToVisual(ThumbnailSurface).TransformPoint(new Windows.Foundation.Point(item.ActualWidth,0)).X;
-            cachedThumbnailAnchor=anchor;
-            thumbnailAnchorRight=right+offset;
-        }
-        if(cachedThumbnailAnchor!=anchor)
+        if(PhotoList.ContainerFromItem(anchor) is not ListViewItem { ActualWidth:>0 } item ||
+            VisualChild<Image>(item) is not { ActualWidth:>0,ActualHeight:>0 } image)
         {
             ThumbnailSelectionActions.Visibility=Visibility.Collapsed;
             return;
         }
-        var maxLeft=Math.Max(0,ThumbnailSurface.ActualWidth-ThumbnailSelectionActions.Width-6);
-        var left=Math.Clamp(thumbnailAnchorRight-offset-ThumbnailSelectionActions.Width-4,Math.Min(6,maxLeft),maxLeft);
-        ThumbnailSelectionActions.Margin=new Thickness(left,6,0,0);
+        var origin=image.TransformToVisual(ThumbnailSurface).TransformPoint(new Windows.Foundation.Point());
+        var leftEdge=Math.Max(0,origin.X);
+        var rightEdge=Math.Min(ThumbnailSurface.ActualWidth,origin.X+image.ActualWidth);
+        var width=Math.Min(52,rightEdge-leftEdge-6);
+        if(width<28)
+        {
+            ThumbnailSelectionActions.Visibility=Visibility.Collapsed;
+            return;
+        }
+        ThumbnailSelectionActions.Width=width;
+        ThumbnailSelectionActions.Margin=new Thickness(leftEdge+(rightEdge-leftEdge-width)/2,
+            Math.Max(0,origin.Y+(image.ActualHeight-64)/2),0,0);
         CopySelectedThumbnails.IsEnabled=copy;
         SplitSelectedThumbnails.IsEnabled=split;
         if(ThumbnailSelectionActions.Visibility!=Visibility.Visible)

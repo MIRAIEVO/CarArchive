@@ -7,7 +7,8 @@ namespace CarArchive.Core;
 public static class NamingGuideBuilder
 {
     private static readonly NamingGuide Mandatory=new() { BrandPolicies=NamingPolicies.Standard() };
-    public static NamingGuide Build(string root, WorkspaceState state, IReadOnlyList<ArchiveJob>? jobs = null, CancellationToken ct = default)
+    public static NamingGuide Build(string root, WorkspaceState state, IReadOnlyList<ArchiveJob>? jobs = null, CancellationToken ct = default,
+        IReadOnlyList<NamingClickLog>? namingClicks = null)
     {
         var guide=new NamingGuide { SourceRoot=root.Length>0?System.IO.Path.GetFullPath(root):"",SourceStateHash=NamingGuideStore.SourceStateHash(state,jobs),BrandPolicies=NamingPolicies.Standard() };
         if(root.Length==0 || !Directory.Exists(root)) return guide;
@@ -22,8 +23,13 @@ public static class NamingGuideBuilder
             return brands.GetValueOrDefault(NamingText.Key(mapped)) ?? brands.GetValueOrDefault(NamingText.Key(brand)) ?? mapped;
         }
         static string Endpoint(string brand,string folder)=>brand+"\0"+folder;
+        var clicks=(namingClicks ?? []).Where(item=>!string.IsNullOrWhiteSpace(item.Confirmed.Brand) &&
+            !string.IsNullOrWhiteSpace(NamingText.FullModel(item.Confirmed)) && !string.IsNullOrWhiteSpace(item.FinalName))
+            .Select((item,index)=>(Key:Endpoint(Resolve(item.Confirmed.Brand),item.FinalName),
+                Identity:item.Confirmed,Order:remembered.Count+groupOrder.Count+index+1));
         var sourcesByFolder=remembered.Select(item=>(Key:Endpoint(Resolve(item.Name.Brand),item.Name.FolderName),Identity:item.Identity,Order:item.Order))
             .Concat(groupOrder.Select(item=>(Key:Endpoint(Resolve(item.Group.TargetBrand),item.Group.FolderName),Identity:item.Group.Confirmed,Order:item.Order)))
+            .Concat(clicks)
             .ToLookup(item=>item.Key,StringComparer.OrdinalIgnoreCase);
         foreach(var brandPath in brandPaths)
         {

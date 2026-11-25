@@ -17,7 +17,8 @@ if(args is ["probe-guide",var guidePath,var probeOutput]) {
 }
 if(args is ["refresh-shipped",var archiveRoot,var sourceData,var resources]) {
  var source=ReadOnlyWorkspaceSnapshot.Load(sourceData);source.State.Settings.ArchiveRoot=archiveRoot;
- var built=NamingGuideBuilder.Build(archiveRoot,source.State,source.Jobs);var portable=BuiltInNamingGuide.PortableSnapshot(built);
+ var built=NamingGuideBuilder.Build(archiveRoot,source.State,source.Jobs,namingClicks:source.NamingClicks);var portable=BuiltInNamingGuide.PortableSnapshot(built);
+ var clicksMatched=portable.Inventory.Count(entry=>entry.ConfirmationOrder>source.State.Names.Count+source.State.Groups.Count(group=>group.Archived));
  var actual=Directory.EnumerateDirectories(archiveRoot).SelectMany(Directory.EnumerateDirectories).Count();
  if(portable.Inventory.Count!=actual)throw new InvalidDataException("Directory coverage is incomplete.");
  var noteCount=Directory.EnumerateDirectories(archiveRoot).Append(archiveRoot)
@@ -44,10 +45,12 @@ if(args is ["refresh-shipped",var archiveRoot,var sourceData,var resources]) {
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名输入推演.csv"),Csv(probes),true);
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名差异与待复核.csv"),Csv(review),true);
  NamingGuideStore.WriteAtomic(Path.Combine(resources,"命名学习覆盖.json"),JsonSerializer.Serialize(new{
-    Version="1.4",Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Folders=actual,FamilyProfiles=portable.Profiles.Count,
+    Version="1.4.1",Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Folders=actual,FamilyProfiles=portable.Profiles.Count,
     SupplementFiles=noteCount,Probes=probes.Count-1,ExactProbeMatches=probes.Count-review.Count,DifferencesForReview=review.Count-1,
-    IdentityMatched=portable.Inventory.Count(e=>e.HasIdentity),
-    Scope="Local names and supplements; historic manufacturer evidence tables retained without claiming fresh verification."
+    IdentityMatched=portable.Inventory.Count(e=>e.HasIdentity),RememberNameClicks=source.NamingClicks.Count,
+    EditedNameClicks=source.NamingClicks.Count(item=>!string.Equals(item.AutomaticName,item.FinalName,StringComparison.Ordinal)),
+    EndpointsMatchedByClicks=clicksMatched,
+    Scope="Local archive and supplements; confirmed remember-name records inform aliases and profiles only for existing endpoints. The release excludes raw click logs."
  },new JsonSerializerOptions {WriteIndented=true}),false);
  Console.WriteLine(JsonSerializer.Serialize(new {Folders=portable.Inventory.Count,Brands=portable.Inventory.Select(e=>e.Brand).Distinct().Count(),Rules=portable.Profiles.Count,Notes=portable.Notes.Count,Warnings=portable.Warnings.Count}));return 0;
 }
